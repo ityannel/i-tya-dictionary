@@ -423,13 +423,49 @@ Ma soti Hakotatea mu nu.
 理由等は日本語で出力すること。
 
 1. 新概念として新しい語幹を生成した場合:
-{"status": "new", "root": "語幹", "reason": "考案理由"}
+{
+  "status": "new", 
+  "meaning": "日本語での意味"
+  "root": "語幹", 
+  "reason": "考案した理由。なぜ新しい語幹が必要なのかの論理的な説明。なぜこの音の組合しにしたのかの説明。"
+}
 
-2. 既存・類似概念として拒否する場合:
-{"status": "rejected", "existing_concept": "似ている概念", "reason": "拒否理由"}
+2. 既存単語の組み合わせで完全に表現可能な場合:
+{
+  "status": "complexed",
+  "meaning": "日本語での意味",
+  "combination": "既存単語と拡張詞を組み合わせた具体的表現(例: pata haliu)",
+  "complexity_type": "semantic | logical | syntactic",
+  "components": ["部品A", "部品B"],
+  "syntax_logic": "修飾関係の統語論的説明（なぜその拡張詞を選んだか）。",
+  "reason": "既存語の再利用がi-tyaの語彙節約哲学に合致する旨の説明。"
+}
 
-3. 意味不明・文章・そのほかのルール違反で生成を拒否する場合:
-{"status": "invalid", "reason": "拒否理由"}
+3. 新語と既存単語を組み合わせて解決する場合（それぞれの語数は問いません）
+{
+  "status": "semi_complexed",
+  "meaning": "日本語での意味",
+  "new_roots": ["語幹1", "語幹2", "..."],
+  "combination": "新語群と既存語を組み合わせた完成フレーズ(例: pata haliu mu)",
+  "complexity_type": "semantic | logical | syntactic",
+  "components": ["new_root1", "new_root2", "existing_root1", "..."],
+  "syntax_logic": "複数の要素がどのような順序・格関係で結合されているかの論理的説明。",
+  "reason": "既存語のみでは不足し、複数の新しい構成要素を定義しなければこの概念を記述できなかった理由。"
+}
+
+4. 既存・類似概念として拒否する場合:
+{
+  "status": "rejected",
+  "meaning": "日本語での意味",
+  "existing_concept": "既に存在する単語や概念",
+  "reason": "重複、またはレベル1の捏造禁止などのルール違反による拒否理由。"
+}
+
+5. 意味不明・文章・そのほかのルール違反で生成を拒否する場合:
+{
+  "status": "invalid", 
+  "reason": "入力を理解できない、または不適切なリクエストである理由。"
+}
 
 【絶対遵守事項：既存概念の照合と語彙の節約】
 i-tyaにおいて、レベル2の語彙枠は極めて貴重です。安易に新しい語幹を生成してはなりません。
@@ -445,96 +481,125 @@ i-tyaは「完全な後置修飾（修飾の自由連鎖）」を基本とする
 「トイレマット」「スクールバス」のような複合概念が入力された場合、複数の語幹を物理的に結合して1つの長い新語（例：haliuma）を生成することは【絶対に禁止】します。
 このような複合概念の入力に対しては、必ずステータスを "rejected" としてください。そして reason の中で、「マットとトイレという別々の単語を生成し、i-tyaの文法（後置修飾）を用いて『マット トイレの』のように2語で表現すべきである」と指摘し、新語の生成を拒否してください。
 また、英語などの他言語の発音を安易に借用し、レベル1の単語（maなど）を捏造することも厳禁です。
+
+レベル1（1音節語）においては、末尾の母音(a, i, u)が異なれば、それらは語根を共有しない全く別の独立した概念として扱われる場合があります。
+安易に語根が共通していると見なさず、既存リストを個別に参照してください。
 `;
 
-// --- 2. Gemini APIの初期化 ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", systemInstruction: ityaRules});
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-// --- 3. 単語生成APIエンドポイント ---
+
 app.post('/api/generate', async (req, res) => {
   const { concept } = req.body;
 
   if (!concept) {
-    return res.status(400).json({ error: "概念(concept)を入力してください。" });
+    return res.status(400).json({ status: "invailed", reason: "入力が空か、無効な単語です！"});
   }
 
   try {
-    console.log(`[LOG] '${concept}' のi-tya単語を生成中...`);
+    console.log(`[LOG] '${concept}' の単語を検索中`);
 
-    // --- バグ1修正: 過去の単語リストをFirestoreから取得 ---
-    const snapshot = await db.collection('itya_words').get();
-    const existingList = snapshot.docs.map(doc => ({
-      concept: doc.data().concept_ja,
-      root: doc.data().word_noun.slice(0, -1) // aを削って語幹にする
-    }));
-    const checkListStr = JSON.stringify(existingList);
+    const wordSnap = await db.collection('itya_words').where('concept_ja', '==', concept).get();
+    if (!wordSnap.empty) {
+      const existingWord = wordSnap.docs[0].data();
+      console.log(`[INFO] もう単語があります！: ${existingWord.word_noun} (ID: ${wordSnap.docs[0].id})`);
+      return res.json({ id: wordSnap.docs[0].id, data: { noun: existingWord.word_noun, verb: existingWord.word_verb, extender: existingWord.word_extender }, reason: "既存の単語が見つかりました！" });
+    }
+
+    const complexSnap = await db.collection('itya_words').where("concept_ja", "==", concept).get();
+    if (!complexSnap.empty) {
+      const complexWord = complexSnap.docs[0].data();
+      console.log(`[INFO] 複合語が見つかりました！: ${complexWord.word_noun} (ID: ${complexSnap.docs[0].id})`);
+      return res.json({ id: complexSnap.docs[0].id, data: { noun: complexWord.word_noun, verb: complexWord.word_verb, extender: complexWord.word_extender }, reason: "複合語が見つかりました！" });
+    }
+
+    const allWords = await db.collection('itya_words').get();
+    const checkListStr = allWords.docs.map(doc => {
+      const d = doc.data();
+      const w = d.word_noun || d.word_verb || d.word_extender;
+      const root = w.length <= 2 ? w : w.slice(0, -1);
+      return `${d.concept_ja}: ${root}`;
+    }).join(', ');
 
     const prompt = `
-      入力された単語: ${concept}
-      既存・拒否リスト: ${checkListStr}
+    概念: 「${concept}」
+    既存リスト: ${checkListStr}
+    
+    上記のリストを必ず確認し、類似・包含される概念がすでに存在しないか、または既存単語の組み合わせ（拡張詞の利用など）で表現できないかを最優先で精査しなさい。
+    絶対にルールとJSONフォーマットに従い出力すること。`;
+    const result = await model.generateContent([ityaRules, prompt]); // ityaRulesはお前が作った指示書だ
+    const responseText = result.response.text().replace(/```json|```/g, '').trim();
+    const aiRes = JSON.parse(responseText);
 
-      上記のリストを必ず確認し、類似・包含される概念がすでに存在しないか、または既存単語の組み合わせ（拡張詞の利用など）で表現できないかを最優先で審査せよ。
-      絶対にルールとJSONフォーマットに従い出力すること。
-    `;
+    const batch = db.batch();
 
-    const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" }
-    });
-
-    const responseText = result.response.text();
-    console.log("[DEBUG] Geminiからの生データ:", responseText); 
-
-    const generatedData = JSON.parse(responseText);
-
-    // --- バグ2 & 3修正: AIの判定(status)に合わせた条件分岐 ---
-    if (generatedData.status === "new") {
-      const root = generatedData.root;
-
-      // JS側での最終検閲（禁忌文字e,oや空文字のチェック）
-      if (!root || /[eo]/.test(root) || root.length < 1) {
-        throw new Error("AIがルール違反の語幹を生成しました。");
-      }
-
-      // 語幹から3つの品詞を生成
-      const noun = root + "a";
-      const verb = root + "i";
-      const extender = root + "u";
-
-      // Firestoreに保存
-      const docRef = await db.collection('itya_words').add({
+    if (aiRes.status === 'new') {
+      // 新語保存
+      validateRoot(aiRes.root);
+      const newDoc = db.collection('itya_words').doc();
+      batch.set(newDoc, {
         concept_ja: concept,
-        root_meaning: generatedData.reason || "新規生成",
-        word_noun: noun,
-        word_verb: verb,
-        word_extender: extender,
+        word_noun: aiRes.root + "a",
+        word_verb: aiRes.root + "i",
+        word_extender: aiRes.root + "u",
+        reason: aiRes.reason,
+        level: 2,
         created_at: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      console.log(`[SUCCESS] Firestoreに保存しました (ID: ${docRef.id})`);
-      return res.json({ id: docRef.id, data: { noun, verb, extender }, reason: generatedData.reason });
+    } else if (aiRes.status === 'complexed') {
+      // 完全複合語保存
+      const newComplex = db.collection('itya_complex').doc();
+      batch.set(newComplex, {
+        concept_ja: concept,
+        combination: aiRes.combination,
+        complexity_type: aiRes.complexity_type,
+        components: aiRes.components,
+        syntax_logic: aiRes.syntax_logic,
+        reason: aiRes.reason,
+        created_at: admin.firestore.FieldValue.serverTimestamp()
+      });
 
-    } else if (generatedData.status === "rejected") {
-      console.log(`[INFO] 類似概念として拒否されました: ${generatedData.existing_concept}`);
-      return res.json({ status: "rejected", message: "類似の概念が既に存在します。", existing: generatedData.existing_concept, reason: generatedData.reason });
-
-    } else {
-      // invalid の場合
-      console.log(`[INFO] 無効な入力として拒否されました: ${generatedData.reason}`);
-      return res.status(400).json({ status: "invalid", message: generatedData.reason });
+    } else if (aiRes.status === 'semi_complexed') {
+      if (Array.isArray(aiRes.new_roots)) {
+        for (const r of aiRes.new_roots) {
+          validateRoot(r);
+          const partDoc = db.collection('itya_words').doc();
+          batch.set(partDoc, {
+            concept_ja: `(Part of ${concept})`,
+            word_noun: r + "a",
+            word_verb: r + "i",
+            word_extender: r + "u",
+            level: 2,
+            created_at: admin.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+      const newComplex = db.collection('itya_complex').doc();
+      batch.set(newComplex, {
+        concept_ja: concept,
+        combination: aiRes.combination,
+        components: aiRes.components,
+        syntax_logic: aiRes.syntax_logic,
+        created_at: admin.firestore.FieldValue.serverTimestamp()
+      });
     }
 
+    // バッチ実行
+    await batch.commit();
+    res.json(aiRes);
+
   } catch (error) {
-    console.error("[ERROR]", error);
-    res.status(500).json({ error: "単語の生成または保存に失敗しました。" });
+    console.error("エラー！:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`i-tya Genesis Engine is running on port ${PORT}`);
+  console.log(`i-tya dictionary is running on port ${PORT}`);
 });
