@@ -1,31 +1,176 @@
 [
-  { "concept_ja": "（名詞系疑問詞）", "root_meaning": "疑問代名詞", "word_noun": "a", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "あれ（遠い）", "root_meaning": "遠称指示代名詞", "word_noun": "la", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "私", "root_meaning": "一人称代名詞", "word_noun": "ma", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "3rd p.", "root_meaning": "三人称代名詞", "word_noun": "na", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "あなた", "root_meaning": "二人称代名詞", "word_noun": "pa", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "これ（近い）", "root_meaning": "近称指示代名詞", "word_noun": "sa", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "空間・場所", "root_meaning": "空間概念名詞", "word_noun": "wa", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "事実", "root_meaning": "事実概念名詞", "word_noun": "ya", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "後", "root_meaning": "後方・後刻", "word_noun": "mwa", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "前", "root_meaning": "前方・以前", "word_noun": "pwa", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "言葉・記号", "root_meaning": "言語概念名詞", "word_noun": "swa", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "道・方向", "root_meaning": "経路概念名詞", "word_noun": "kya", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "時間・時", "root_meaning": "時間概念名詞", "word_noun": "tya", "word_verb": null, "word_extender": null, "level": 1 },
-  { "concept_ja": "（動詞系疑問詞）", "root_meaning": "疑問動詞", "word_noun": null, "word_verb": "i", "word_extender": null, "level": 1 },
-  { "concept_ja": "（拡張詞系疑問詞）", "root_meaning": "疑問拡張詞", "word_noun": null, "word_verb": null, "word_extender": "u", "level": 1 },
-  { "concept_ja": "〜ない（否定）", "root_meaning": "否定", "word_noun": null, "word_verb": null, "word_extender": "hu", "level": 1 },
-  { "concept_ja": "〜へ（方向）", "root_meaning": "方向格", "word_noun": null, "word_verb": null, "word_extender": "ku", "level": 1 },
-  { "concept_ja": "（数字）", "root_meaning": "数詞用拡張詞", "word_noun": null, "word_verb": null, "word_extender": "lu", "level": 1 },
-  { "concept_ja": "〜から・の（起点）", "root_meaning": "起点格・所有", "word_noun": null, "word_verb": null, "word_extender": "mu", "level": 1 },
-  { "concept_ja": "〜した（完了）", "root_meaning": "完了相（アスペクト）", "word_noun": null, "word_verb": null, "word_extender": "nu", "level": 1 },
-  { "concept_ja": "〜と・さらに（付加）", "root_meaning": "付加・並列", "word_noun": null, "word_verb": null, "word_extender": "pu", "level": 1 },
-  { "concept_ja": "〜で・〜に（時空間）", "root_meaning": "処格", "word_noun": null, "word_verb": null, "word_extender": "su", "level": 1 },
-  { "concept_ja": "〜で（手段）", "root_meaning": "具格（手段・方法）", "word_noun": null, "word_verb": null, "word_extender": "tu", "level": 1 },
-  { "concept_ja": "〜なら（条件）", "root_meaning": "条件節", "word_noun": null, "word_verb": null, "word_extender": "yu", "level": 1 },
-  { "concept_ja": "〜たち（複数）", "root_meaning": "複数形", "word_noun": null, "word_verb": null, "word_extender": "kyu", "level": 1 },
-  { "concept_ja": "〜途中（進行）", "root_meaning": "進行相（アスペクト）", "word_noun": null, "word_verb": null, "word_extender": "myu", "level": 1 },
-  { "concept_ja": "（疑問）", "root_meaning": "疑問終助詞的機能", "word_noun": null, "word_verb": null, "word_extender": "nyu", "level": 1 },
-  { "concept_ja": "〜または（選択）", "root_meaning": "選択", "word_noun": null, "word_verb": null, "word_extender": "pyu", "level": 1 },
-  { "concept_ja": "〜だから（理由）", "root_meaning": "理由・原因", "word_noun": null, "word_verb": null, "word_extender": "syu", "level": 1 }
+  {
+    "status": "new",
+    "meaning": "（名詞系疑問詞）",
+    "root": "a",
+    "reason": "名詞系の疑問を形成するi-tyaの最重要概念の一つであるため、レベル1語彙として定義。最も発音しやすい基本母音「a」を単独で割り当てた。"
+  },
+  {
+    "status": "new",
+    "meaning": "あれ（遠い）",
+    "root": "la",
+    "reason": "遠称を指し示す基本概念であり、レベル1語彙として不可欠。流音の「l」と母音「a」の組み合わせで空間的な距離や広がりを表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "私",
+    "root": "ma",
+    "reason": "一人称の概念は言語において最も根源的であるため、レベル1として定義。多くの言語で親密な対象や自己に使われる両唇鼻音「m」を採用した。"
+  },
+  {
+    "status": "new",
+    "meaning": "3rd p.",
+    "root": "na",
+    "reason": "三人称を示す基本代名詞としてレベル1に定義。一人称・二人称と明確に区別するため、歯茎鼻音の「n」を採用した。"
+  },
+  {
+    "status": "new",
+    "meaning": "あなた",
+    "root": "pa",
+    "reason": "二人称（対話相手）を示す基本代名詞としてレベル1に定義。発音時に息が前方へ向かう両唇破裂音「p」で、相手への指向性を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "これ（近い）",
+    "root": "sa",
+    "reason": "近称を指し示す基本概念としてレベル1に定義。摩擦音「s」の鋭い響きで、手元にある対象を明確に指し示すニュアンスを持たせた。"
+  },
+  {
+    "status": "new",
+    "meaning": "空間・場所",
+    "root": "wa",
+    "reason": "物理的な空間や場所の起点となる概念としてレベル1に定義。半母音「w」の丸みを帯びた音で、空間の広がりを表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "事実",
+    "root": "ya",
+    "reason": "事象や真実を確定させる抽象概念としてレベル1に定義。半母音「y」を用いることで、確固たる存在感を示した。"
+  },
+  {
+    "status": "new",
+    "meaning": "後",
+    "root": "mwa",
+    "reason": "時間・空間的な「後方」を示す基本概念としてレベル1に定義。「m」に半母音「w」を介在させることで、背後へ続くニュアンスを持たせた。"
+  },
+  {
+    "status": "new",
+    "meaning": "前",
+    "root": "pwa",
+    "reason": "時間・空間的な「前方」を示す基本概念としてレベル1に定義。「p」と「w」の組み合わせで、未来や前方へ開けるイメージを持たせた。"
+  },
+  {
+    "status": "new",
+    "meaning": "言葉・記号",
+    "root": "swa",
+    "reason": "言語システム自体を指す概念としてレベル1に定義。「s」と「w」の摩擦を伴う音の連なりで、発話行為そのものを表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "道・方向",
+    "root": "kya",
+    "reason": "経路や方向性を示す基本概念としてレベル1に定義。硬口蓋化された「ky」の響きで、一点に向かって伸びる道を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "時間・時",
+    "root": "tya",
+    "reason": "時間という不可逆の次元を示す概念としてレベル1に定義。「ty」の鋭い破擦音的な響きで、時が刻まれる感覚を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "（動詞系疑問詞）",
+    "root": "i",
+    "reason": "動詞系の疑問を形成する基本要素としてレベル1に定義。動詞を象徴する母音「i」を単独で用いることで、動作への問いかけを明確にした。"
+  },
+  {
+    "status": "new",
+    "meaning": "（拡張詞系疑問詞）",
+    "root": "u",
+    "reason": "拡張詞系（状態・修飾）の疑問を形成する要素としてレベル1に定義。拡張詞を象徴する母音「u」を単独で用いることで体系の整合性を保った。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜ない（否定）",
+    "root": "hu",
+    "reason": "存在や状態を打ち消す論理演算の基本としてレベル1に定義。息を吐き出す摩擦音「h」で、対象が消え去るイメージを表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜へ（方向）",
+    "root": "ku",
+    "reason": "移動の終点や方向を示す格助詞的機能としてレベル1に定義。軟口蓋破裂音「k」の力強さで、目的地への到達を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "（数字）",
+    "root": "lu",
+    "reason": "数詞を形成するための拡張機能としてレベル1に定義。流音「l」の連続性で、数が無限に連なっていく様を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜から・の（起点）",
+    "root": "mu",
+    "reason": "起点や所有を示す格助詞的機能としてレベル1に定義。鼻音「m」の内にこもる響きで、出処や所属の概念を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜した（完了）",
+    "root": "nu",
+    "reason": "動作の完了や結果の存続を示すアスペクトとしてレベル1に定義。歯茎鼻音「n」の響きで、行為が地に足をついて定着した状態を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜と・さらに（付加）",
+    "root": "pu",
+    "reason": "並列や情報の追加を示す接続機能としてレベル1に定義。破裂音「p」を用いることで、要素が次々と足されていく弾みを持たせた。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜で・〜に（時空間）",
+    "root": "su",
+    "reason": "事象が発生する時空間の舞台（処格）を示す機能としてレベル1に定義。摩擦音「s」の広がりで、場そのものを表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜で（手段）",
+    "root": "tu",
+    "reason": "道具や手段（具格）を示す機能としてレベル1に定義。歯茎破裂音「t」の硬い響きで、道具が対象に接触する様を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜なら（条件）",
+    "root": "yu",
+    "reason": "仮定や条件を示す論理機能としてレベル1に定義。半母音「y」の揺らぎのある音で、未確定の条件分岐を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜たち（複数）",
+    "root": "kyu",
+    "reason": "名詞の複数形を形成する機能としてレベル1に定義。硬口蓋化された「ky」を用いることで、要素が密集している状態を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜途中（進行）",
+    "root": "myu",
+    "reason": "動作が進行中であることを示すアスペクトとしてレベル1に定義。「m」と「y」の連続性のある響きで、終わりのない過程を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "（疑問）",
+    "root": "nyu",
+    "reason": "文全体を疑問文にする終助詞的機能としてレベル1に定義。「ny」の粘り気のある音で、相手への問いかけの余韻を表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜または（選択）",
+    "root": "pyu",
+    "reason": "複数の選択肢を提示する論理機能としてレベル1に定義。「py」の破裂と摩擦の組み合わせで、道が分岐するイメージを表現した。"
+  },
+  {
+    "status": "new",
+    "meaning": "〜だから（理由）",
+    "root": "syu",
+    "reason": "原因と結果を結びつける論理機能としてレベル1に定義。「sy」の滑らかな摩擦音で、原因から結果への必然的な流れを表現した。"
+  }
 ]
