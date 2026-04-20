@@ -603,3 +603,13 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`i-tya dictionary is running on port ${PORT}`);
 });
+
+function validateRoot(root) {
+  if (!root) throw new Error("AIが語幹を空っぽにしてきやがったぜ。");
+  
+  const vowelCount = (root.match(/[aiu]/g) || []).length;
+
+  if (vowelCount === 0 || (root.length === 1 && vowelCount === 1)) {
+    throw new Error(`レベル1の単語 [${root}] を作ろうとしました。`);
+  }
+}
