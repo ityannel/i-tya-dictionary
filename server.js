@@ -504,20 +504,39 @@ app.post('/api/generate', async (req, res) => {
       return res.json({ id: wordSnap.docs[0].id, data: { noun: existingWord.word_noun, verb: existingWord.word_verb, extender: existingWord.word_extender }, reason: "既存の単語が見つかりました！" });
     }
 
-    const complexSnap = await db.collection('itya_words').where("concept_ja", "==", concept).get();
+    const complexSnap = await db.collection('itya_complex').where("concept_ja", "==", concept).get();
     if (!complexSnap.empty) {
       const complexWord = complexSnap.docs[0].data();
-      console.log(`[INFO] 複合語が見つかりました！: ${complexWord.word_noun} (ID: ${complexSnap.docs[0].id})`);
-      return res.json({ id: complexSnap.docs[0].id, data: { noun: complexWord.word_noun, verb: complexWord.word_verb, extender: complexWord.word_extender }, reason: "複合語が見つかりました！" });
+      console.log(`[INFO] 過去の複合語データベースから発見！: ${complexWord.combination} (ID: ${complexSnap.docs[0].id})`);
+      
+      // AIが「complexed」を生成した時と同じフォーマットでフロントに返す
+      return res.json({ 
+        status: "complexed",
+        meaning: complexWord.concept_ja,
+        combination: complexWord.combination,
+        complexity_type: complexWord.complexity_type || "semantic",
+        components: complexWord.components || [],
+        syntax_logic: complexWord.syntax_logic,
+        reason: "[データベースの記憶より] 過去に生成された複合概念です。" 
+      });
     }
 
     const allWords = await db.collection('itya_words').get();
     const checkListStr = allWords.docs.map(doc => {
-      const d = doc.data();
-      const w = d.word_noun || d.word_verb || d.word_extender;
-      const root = w.length <= 2 ? w : w.slice(0, -1);
-      return `${d.concept_ja}: ${root}`;
-    }).join(', ');
+    const d = doc.data();
+    // データベースのスキーマ違いを吸収する
+    const w = d.word_noun || d.word_verb || d.word_extender;
+    
+    // もし w がなくて、直接 root が登録されていればそれを使う（今回インポートしたデータ用）
+    if (!w) {
+        if (d.root) return `${d.meaning || d.concept_ja}: ${d.root}`;
+        return ""; // 完全に壊れたデータは無視
+    }
+
+    // 従来のデータ用
+    const root = w.length <= 2 ? w : w.slice(0, -1);
+    return `${d.concept_ja || d.meaning}: ${root}`;
+    }).filter(line => line !== "").join(', ');
 
     const prompt = `
     概念: 「${concept}」
