@@ -1,4 +1,33 @@
-try {
+const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const admin = require('firebase-admin');
+
+// --- 1. Firestoreの初期化 ---
+const serviceAccount = require('./serviceAccountKey.json');
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+const db = admin.firestore();
+
+// --- 2. Gemini APIの初期化 ---
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// --- 3. 単語生成APIエンドポイント ---
+app.post('/api/generate', async (req, res) => {
+  const { concept } = req.body;
+
+  if (!concept) {
+    return res.status(400).json({ error: "概念(concept)を入力してください。" });
+  }
+
+  try {
     console.log(`[LOG] '${concept}' のi-tya単語を生成中...`);
 
     const prompt = `
@@ -29,12 +58,11 @@ try {
     });
 
     const responseText = result.response.text();
-    // ここでAIが何を返してきたかログに表示させる（デバッグ用だ）
     console.log("[DEBUG] Geminiからの生データ:", responseText); 
 
     const generatedData = JSON.parse(responseText);
 
-    // --- 安全なデータ取り出し（AIが指定構造を無視した時のための防弾チョッキだ） ---
+    // --- 安全なデータ取り出し ---
     const noun = generatedData.words?.noun || generatedData.noun || "error-a";
     const verb = generatedData.words?.verb || generatedData.verb || "error-i";
     const extender = generatedData.words?.extender || generatedData.extender || "error-u";
@@ -56,3 +84,9 @@ try {
     console.error("[ERROR]", error);
     res.status(500).json({ error: "単語の生成または保存に失敗しました。" });
   }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`i-tya Genesis Engine is running on port ${PORT}`);
+});
