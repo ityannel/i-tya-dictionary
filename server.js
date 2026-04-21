@@ -437,8 +437,8 @@ Ma soti Hakotatea mu nu.
 {
   "status": "rejected",
   "meaning": "日本語での意味",
-  "existing_concept": "既に存在する単語や概念",
-  "reason": "重複、またはレベル1の捏造禁止などのルール違反による拒否理由。"
+  "existing_concept": "既に存在する単語や概念（i-tyaの語彙のみを示してください）",
+  "reason": "重複している場合は、どんな既存言語で表現できるかを示してください。"
 }
 
 5. 意味不明・文章・そのほかのルール違反で生成を拒否する場合:
@@ -469,6 +469,7 @@ i-tyaは「完全な後置修飾（修飾の自由連鎖）」を基本とする
 
 1. 語幹(root)の出力規則：
 「new」および「semi_complexed」で出力する語幹(root/new_root)は、絶対に末尾が母音(a, i, u)であってはなりません。必ず名詞化(+a)する前の「骨組み（例: wasa -> was）」を出力してください。
+これは、システム上、名詞はこちら側で機械的に操作したうえでユーザーへ出力するため、AI側で語幹を正確に出力することが重要であるためです。もしこのルールが守られない場合、AIが生成した語幹を正しく処理できず、ユーザーに誤った単語を提供してしまう可能性があります。
 
 2. complexed の厳格な条件：
 「complexed」の components に含めることができるのは、私が渡した【既存リスト】に明確に存在する単語のみです。リストにない単語を勝手に既存単語として捏造することは絶対に禁止します。***もし一つでも不足する概念があるなら、必ず「semi_complexed」を使用してください。***
@@ -478,6 +479,8 @@ i-tyaは「完全な後置修飾（修飾の自由連鎖）」を基本とする
 
 4. 固有名詞：
 固有名詞は、音訳してください。例えば、ニューヨークは、Nyuyoka、東京はTokyoa、マイケル・ジャクソンは、Yakusuna Maikiluaなどとしてください。固有名詞は、あくまでも名詞であり、-aで終わる形にすること。
+
+5. ドキュメント内にある例文に出てきた単語については、あなたはまだ学習していないことになっています。ドキュメントで発見した単語については、一度データベースを調べ、そこになければ「new」として扱うこと。
 `;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -538,15 +541,49 @@ app.post('/api/generate', async (req, res) => {
     return `${d.concept_ja || d.meaning}: ${root}`;
     }).filter(line => line !== "").join(', ');
 
-    const prompt = `
+    let basePrompt = `
     概念: 「${concept}」
     既存リスト: ${checkListStr}
     
     上記のリストを必ず確認し、類似・包含される概念がすでに存在しないか、または既存単語の組み合わせ（拡張詞の利用など）で表現できないかを最優先で精査しなさい。
     絶対にルールとJSONフォーマットに従い出力すること。`;
-    const result = await model.generateContent([ityaRules, prompt]); // ityaRulesはお前が作った指示書だ
-    const responseText = result.response.text().replace(/```json|```/g, '').trim();
-    const aiRes = JSON.parse(responseText);
+
+    let attempt = 0;
+    const maxAttempts = 3; // AIにチャンスを与える最大回数
+    let aiRes = null;
+    let currentPrompt = basePrompt;
+
+    while (attempt < maxAttempts) {
+      try {
+        console.log(`[LOG] AI生成試行 ${attempt + 1}回目...`);
+        const result = await model.generateContent([ityaRules, currentPrompt]);
+        const responseText = result.response.text().replace(/```json|```/g, '').trim();
+        aiRes = JSON.parse(responseText);
+
+        if (aiRes.status === 'new') {
+          validateRoot(aiRes.root);
+        } else if (aiRes.status === 'semi_complexed' && Array.isArray(aiRes.new_roots)) {
+          for (const r of aiRes.new_roots) {
+            validateRoot(r);
+          }
+        }
+        
+        break; 
+        
+      } catch (validationError) {
+        attempt++;
+        console.warn(`[WARN] AIが違反した単語を生成した（${attempt}回目）: ${validationError.message}`);
+        
+        if (attempt >= maxAttempts) {
+          throw new Error(`AIが${maxAttempts}回連続で違反した！: ${validationError.message}`);
+        }
+        
+        currentPrompt = basePrompt + `\n\n【システムからの絶対的警告】
+        前回あなたが生成した回答は、以下の致命的なルール違反により拒否されました：
+        「${validationError.message}」
+        前回の回答（語幹や組み合わせ）は完全に破棄し、この指摘を深く反省した上で、同じエラーを絶対に繰り返さないアプローチで再生成してください。`;
+      }
+    }
 
     const batch = db.batch();
 
@@ -619,10 +656,26 @@ app.listen(PORT, () => {
 
 function validateRoot(root) {
   if (!root) throw new Error("AIが語幹を空っぽにしてきやがったぜ。");
-  
-  const vowelCount = (root.match(/[aiu]/g) || []).length;
 
-  if (vowelCount === 0 || (root.length === 1 && vowelCount === 1)) {
-    throw new Error(`レベル1の単語 [${root}] を作ろうとしました。`);
+  if (/\s/.test(root)) {
+    throw new Error(`語幹にスペースが含まれてるぞ！ [${root}] 複合ならcomplexedを使え！`);
+  }
+
+  if (/[aiu]$/i.test(root)) {
+    throw new Error(`語幹の末尾が母音だ！子音か半母音で終わらせろ！: [${root}]`);
+  }
+
+  const testWord = root + "a";
+
+  const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
+
+  if (!ityaRegex.test(testWord)) {
+    throw new Error(`i-tyaの音韻規則に違反してるぞ！不正な子音の連続(hpaなど)や無効な文字が含まれてる: [${root}]`);
+  }
+
+  const vowelCount = (testWord.match(/[aiu]/g) || []).length;
+
+  if (vowelCount <= 1) {
+    throw new Error(`レベル1の単語を捏造しようとしたな！: [${root}]`);
   }
 }
