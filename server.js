@@ -9,6 +9,7 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 const db = admin.firestore();
+db.settings({ ignoreUndefinedProperties: true });
 
 const ityaRules = `
 あなたは人工言語「i-tya」の厳格なコンパイラ・言語学者だ。以下のルールに絶対に従い単語を生成せよ。指定のJSON形式以外は一切出力するな。
@@ -173,7 +174,7 @@ app.post('/api/generate', async (req, res) => {
   }
 }
 
-    await generateWithRetry(concept, maxAttempts);
+    aiRes = await performAiGeneration(concept, maxAttempts);
     const batch = db.batch();
 
     if (aiRes.status === 'new') {
