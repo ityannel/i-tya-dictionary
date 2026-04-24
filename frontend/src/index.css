@@ -321,7 +321,7 @@ body {
 }
 
 .word-display {
-  font-size: 4rem;
+  font-size: 5rem;
   font-weight: 800;
   margin: 0;
   line-height: 1.1;
@@ -337,7 +337,7 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  font-size: 1.5rem;
+  font-size: 2rem;
   margin: 0;
   font-weight: 600;
 }
