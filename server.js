@@ -52,7 +52,7 @@ const ityaRules = `
 `;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash", systemInstruction: ityaRules});
+const model = genAI.getGenerativeModel({ model: "	gemini-2.5-flash-lite", systemInstruction: ityaRules});
 
 const app = express();
 app.use(cors());
