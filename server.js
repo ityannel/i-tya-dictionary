@@ -193,14 +193,13 @@ reason:
   "part_of_speech": "noun | verb | extender（ユーザーの入力に合わせて、いずれかを選び、その型をそのまま出力すること）"
   "root": "（語末に母音を含まない語幹を出力すること。語末の母音については、システム側で適当につけるため、必要ありません。）", 
   "reason": "
-  （以下のようなフォーマットで出力してください）
-  【意味】
-  （日本語・常体で、語幹に関しての意味を二文程度で示してください。）
-  【詞型の展開】
-  （名詞、動詞、拡張詞のそれぞれの型で、どのような意味の広がりを持つかを示してください。）
-  【語源・由来】
-  （なぜその音が選ばれたのかを説明してください。システム的に、どのように音節構造に適合しているかなどの説明は必要ありません。）
-  "
+  （以下のようなフォーマットで出力してください\nの箇所で改行すること。）
+  【意味】\n（日本語・常体で、語幹に関しての意味を二文程度で示してください。）\n
+  【詞型の展開】\n（名詞、動詞、拡張詞のそれぞれの型で、どのような意味の広がりを持つかを示してください。）\n
+  【語源・由来】\n （なぜその音が選ばれたのかを説明してください。システム的に、どのように音節構造に適合しているかなどの説明は必要ありません。）\n
+  ",
+  "trivia": "i-tya言語やその世界観、言語設計の哲学に関する1文程度の面白い豆知識やコラムを一つ生成してください。"
+
 }
 
 2. 新語と既存単語を組み合わせて解決する場合（それぞれの語数は問いません）（!!!場合3の既存単語の組み合わせよりも優先です。3は、完全に既存の単語で意味が本当に通るときのみ適用してください）
@@ -228,7 +227,8 @@ reason:
       "part_of_speech": "noun | verb | extender",
       "root": "（既存の語幹）"
     }
-  ]
+  ],
+  "trivia": "i-tya言語やその世界観、言語設計の哲学に関する1文程度の面白い豆知識やコラムを一つ生成してください。"
 }
 
 3. 既存単語の組み合わせで完全に表現可能な場合:
@@ -467,13 +467,37 @@ app.post('/api/generate', async (req, res) => {
       });
     }
 
-    // バッチ実行
+    if (aiRes.trivia) {
+      const triviaDoc = db.collection('itya_trivia').doc();
+      batch.set(triviaDoc, {
+        content: aiRes.trivia,
+        created_at: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
     await batch.commit();
     res.json(aiRes);
 
   } catch (error) {
     console.error("エラー！:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/trivia/random', async (req, res) => {
+  try {
+    const snapshot = await db.collection('itya_trivia').get();
+    if (snapshot.empty) {
+      return res.json({ trivia: "i-tyaは、日常生活における迅速な意思疎通を最優先に設計された言語です。" });
+    }
+    
+    const docs = snapshot.docs;
+    const randomDoc = docs[Math.floor(Math.random() * docs.length)];
+    
+    res.json({ trivia: randomDoc.data().content });
+  } catch (error) {
+    console.error("トリビア取得エラー:", error);
+    res.status(500).json({ error: "Failed to fetch trivia" });
   }
 });
 

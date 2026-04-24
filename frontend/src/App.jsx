@@ -7,6 +7,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [trivia, setTrivia] = useState('');
 
   const loadingMessages = [
     "をデータベースから検索中...",
@@ -41,19 +42,20 @@ export default function App() {
   };               
 
   const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!query) return;
+  e.preventDefault();
+  if (!query) return;
 
-    const startSearching = () => {
-      setIsSearching(true);
-      setResult(null);
-      setError(false);
-    }
-    
-    if(document.startViewTransition){
-      document.startViewTransition(startSearching);
-    } else {
-      startSearching();
+  const startSearching = async () => {
+    setIsSearching(true);
+    setResult(null);
+    setError(false);
+    setTrivia("i-tyaの知識を検索中...");
+    try {
+      const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
+      const trData = await trRes.json();
+      if(trData.trivia) setTrivia(trData.trivia);
+    } catch (err) {
+      console.log("トリビアの取得に失敗したぜ");
     }
 
     try {
@@ -167,6 +169,11 @@ export default function App() {
                 <p className="searching-text">
                   <span>{query}</span> {loadingMessages[loadingStep]}
                 </p>
+
+                <div className="trivia-box">
+                  <p className="trivia-text">{trivia}</p>
+                </div>
+
                 <div className="skeleton-container">
                   <div className="skeleton-box short"></div>
                   <div className="skeleton-line"></div>

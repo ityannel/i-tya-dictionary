@@ -256,7 +256,7 @@ body {
 .word-display {
   font-size: 4rem;
   font-weight: 800;
-  margin: -15px 0 40px 0;
+  margin: 0 0 40px 0;
   line-height: 1.1;
   display: inline-block;
   word-break: break-word;
@@ -274,9 +274,35 @@ body {
   color: rgba(202, 255, 202, 1);
   text-align: left;
   white-space: pre-wrap;
-  font-size: 1rem;
+  font-size: 1.3rem;
   line-height: 1.6;
   word-break: break-word;
   overflow-wrap: anywhere;
   width: 100%;
+}
+
+.trivia-box {
+  background: rgba(112, 255, 112, 0.05); /* いちゃグリーンの極薄背景 */
+  border-left: 4px solid #70ff70;
+  padding: 15px 20px;
+  border-radius: 0 12px 12px 0;
+  margin-bottom: 25px;
+  text-align: left;
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.trivia-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #b0ffb0;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.trivia-text {
+  color: rgba(230, 220, 240, 0.9);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
 }
