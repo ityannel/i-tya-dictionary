@@ -126,51 +126,55 @@ app.post('/api/generate', async (req, res) => {
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    async function generateWithRetry(concept, maxRetries = 3){
-      for (let attempt = 1; attempt <= maxRetries; attempt++){
-        try {
-          console.log(`[LOG] AI生成試行 ${attempt + 1}回目...`);
-          const result = await model.generateContent([ityaRules, currentPrompt]);
-          const responseText = result.response.text().replace(/```json|```/g, '').trim();
-          aiRes = JSON.parse(responseText);
+    async function performAiGeneration(concept, maxRetries) {
+  let currentPrompt = basePrompt;
+  let validationFailCount = 0; // 🚨 ルール違反のカウント
 
-          if (aiRes.status === 'new') {
-            validateRoot(aiRes.root);
-          } else if (aiRes.status === 'semi_complexed' && Array.isArray(aiRes.words)) {
-            for (const word of aiRes.words) {
-              if (word.status === 'new') {
-                validateRoot(word.root);
-              }
-            }
-          }
-          
-          break; 
-          
-        } catch (validationError) {
-          attempt++;
-          console.warn(`[WARN] 違反単語を生成しました！（${attempt}回目）: ${validationError.message}`);
-          
-          if (attempt >= maxAttempts) {
-            throw new Error(`AIが${maxAttempts}回連続で違反しました！: ${validationError.message}`);
-          }
+  // 10回くらい回す覚悟でいろ。ただしルール違反は3回までだ。
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    try {
+      console.log(`[LOG] AI生成試行 ${attempt}回目...`);
+      const result = await model.generateContent([ityaRules, currentPrompt]);
+      const text = result.response.text().replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(text);
 
-          const waitTime = Math.pow(2, attempt) * 1000;
+      // サニタイズ（大文字を小文字に強制変換）
+      if (parsed.root) parsed.root = parsed.root.toLowerCase();
+      
+      // バリデーション実行
+      if (parsed.status === 'new') validateRoot(parsed.root);
+      // (semi_complexedのバリデーションもここに入れる)
 
-          console.log(`[LOG] ${waitTime / 1000}秒待機して再試行します...`);
-          await sleep(waitTime);
-          
-          currentPrompt = basePrompt + `\n\n【システムからの絶対的警告】
-          前回あなたが生成した回答は、以下の致命的なルール違反により拒否されました：
-          「${validationError.message}」
-          前回の回答（語幹や組み合わせ）は完全に破棄し、この指摘を深く反省した上で、同じエラーを絶対に繰り返さないアプローチで再生成してください。`;
-        }
+      return parsed; // ✅ 成功したら即座に返す！
+
+    } catch (err) {
+      // 🚨 503エラー（High Demand）の場合は、ルール違反カウントを増やさずにリトライ！
+      const isApiError = err.message.includes("503") || err.message.includes("Service Unavailable");
+      
+      if (!isApiError) {
+        validationFailCount++;
+        console.warn(`[WARN] ルール違反（${validationFailCount}回目）: ${err.message}`);
+      } else {
+        console.warn(`[WARN] サーバー混雑中（503）。リトライを継続します。`);
+      }
+
+      if (validationFailCount >= maxRetries) {
+        throw new Error(`AIが${maxRetries}回連続でミス！`);
+      }
+
+      // エクスポネンシャル・バックオフ（待機）
+      const waitTime = Math.pow(2, Math.min(attempt, 5)) * 1000;
+      console.log(`[LOG] ${waitTime / 1000}秒待機して再開`);
+      await new Promise(r => setTimeout(r, waitTime));
+      if (!isApiError) {
+        currentPrompt = basePrompt + `\n\n【警告】前回「${err.message}」というミスをしました！気を付けてくださいね。`;
       }
     }
+  }
+}
 
     await generateWithRetry(concept, maxAttempts);
     const batch = db.batch();
-    let root = aiRes;
-    root = root ? root.toLowerCase() : null;
 
     if (aiRes.status === 'new') {
       validateRoot(aiRes.root);
