@@ -52,7 +52,7 @@ const ityaRules = `
 `;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "	gemini-2.5-flash-lite", systemInstruction: ityaRules});
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", systemInstruction: ityaRules});
 
 const app = express();
 app.use(cors());
@@ -169,7 +169,7 @@ app.post('/api/generate', async (req, res) => {
 
     await generateWithRetry(concept, maxAttempts);
     const batch = db.batch();
-    let root = data.root;
+    let root = aiRes;
     root = root ? root.toLowerCase() : null;
 
     if (aiRes.status === 'new') {
