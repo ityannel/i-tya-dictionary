@@ -26,6 +26,22 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isSearching]);
 
+  useEffect(() => {
+    let triviaInterval;
+    if (isSearching) {
+      triviaInterval = setInterval(async () => {
+        try {
+          const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
+          const trData = await trRes.json();
+          if(trData.trivia) setTrivia(trData.trivia);
+        } catch (err) {
+          console.log("トリビアの定期取得に失敗！");
+        }
+      }, 5000); // 5000ミリ秒 ＝ 5秒！
+    }
+    return () => clearInterval(triviaInterval);
+  }, [isSearching]);
+
   const resetSearch = () => {
     const doReset = () => {
       setIsSearching(false);
@@ -42,20 +58,28 @@ export default function App() {
   };               
 
   const handleSearch = async (e) => {
-  e.preventDefault();
-  if (!query) return;
+    e.preventDefault();
+    if (!query) return;
 
-  const startSearching = async () => {
-    setIsSearching(true);
-    setResult(null);
-    setError(false);
-    setTrivia("i-tyaの知識を検索中...");
-    try {
-      const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
-      const trData = await trRes.json();
-      if(trData.trivia) setTrivia(trData.trivia);
-    } catch (err) {
-      console.log("トリビアの取得に失敗したぜ");
+    // 1. エンジン（関数）を定義する
+    const startSearching = async () => {
+      setIsSearching(true);
+      setResult(null);
+      setError(false);
+      setTrivia("i-tyaの知識を検索中...");
+      try {
+        const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
+        const trData = await trRes.json();
+        if(trData.trivia) setTrivia(trData.trivia);
+      } catch (err) {
+        console.log("トリビアの取得に失敗したぜ");
+      }
+    };
+
+    if (document.startViewTransition) {
+      document.startViewTransition(startSearching);
+    } else {
+      startSearching();
     }
 
     try {
@@ -148,12 +172,12 @@ export default function App() {
   return (
     <div className="app-container">
       <div className={`content-wrapper ${isExpanded ? 'moved-up' : ''}`}>
-        <h1 className={`main-title ${isExpanded ? 'squashed' : ''}`}>
+        <h1 className={`main-title ${isExpanded ? 'squashed' : ''} ${error ? 'is-error' : ''}`}>
           Swa i-tya!
         </h1>
 
         <form id="search-form" onSubmit={handleSearch} className="search-form">
-          <div className={`morph-box ${isExpanded ? 'expanded' : ''}`}>
+          <div className={`morph-box ${isExpanded ? 'expanded' : ''} ${error ? 'is-error' : ''}`}>
             
             <input 
               type="text" 
@@ -171,14 +195,18 @@ export default function App() {
                 </p>
 
                 <div className="trivia-box">
-                  <p className="trivia-text">{trivia}</p>
+                  <p key={trivia} className="trivia-text">{trivia}</p>
                 </div>
 
                 <div className="skeleton-container">
-                  <div className="skeleton-box short"></div>
+                  <div className="skeleton-line concept-skel"></div>
+                  <div className="skeleton-box word-skel"></div>
+                  <div className="skeleton-line"></div>
                   <div className="skeleton-line"></div>
                   <div className="skeleton-line mid"></div>
-                  <div className="skeleton-box tall"></div>
+                  <div className="skeleton-line"></div>
+                  <div className="skeleton-line"></div>
+                  <div className="skeleton-line mid"></div>
                 </div>
               </div>
             )}
@@ -205,9 +233,11 @@ export default function App() {
 
             {error && !isSearching && (
               <div className="inner-result fade-in-up">
-                <p className="concept-text" style={{ color: '#ff4d4d' }}>エラー！</p>
-                <h2 className="word-display" style={{ borderColor: '#ff4d4d', color: 'white' }}>Error</h2>
-                <div className="reason-text">データベースとの接続に失敗しました！</div>
+                <p className="concept-text">エラー！</p>
+                <h2 className="word-display">Error</h2>
+                <div className="reason-text">
+                  データベースとの接続に失敗しました！
+                </div>
               </div>
             )}
           </div>
