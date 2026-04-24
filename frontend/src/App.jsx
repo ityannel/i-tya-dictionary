@@ -129,21 +129,34 @@ export default function App() {
 
       const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
 
-      // 🌟 5. 結果が出た時の画面更新。ここもスムーズに出したければ
-      // View Transitionで囲んでもいいが、今はそのままステート更新するぜ。
-      setResult({
-        status: finalStatus,
-        concept: data.meaning || query,
-        root: parsedRoot,
-        displayWord: displayWord,
-        reason: data.reason || "解説はまだ準備されていません！"
-      });
+      const finishSearching = () => {
+        setResult({
+          status: finalStatus,
+          concept: data.meaning || query,
+          root: parsedRoot,
+          displayWord: displayWord,
+          reason: data.reason || "解説はまだ準備されていません！"
+        });
+        setIsSearching(false);
+      };
+
+      if (document.startViewTransition) {
+        document.startViewTransition(finishSearching);
+      } else {
+        finishSearching();
+      }
 
     } catch (err) {
       console.error("通信エラー！", err);
-      setError(true);
-    } finally {
-      setIsSearching(false);
+      const showError = () => {
+        setError(true);
+        setIsSearching(false);
+      };
+      if (document.startViewTransition) {
+        document.startViewTransition(showError);
+      } else {
+        showError();
+      }
     }
   };
 

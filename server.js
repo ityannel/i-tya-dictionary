@@ -248,7 +248,11 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview", systemInstruction: ityaRules});
 
 const app = express();
-app.use(cors());
+const corsOptions = {
+  origin: 'https://i-tya-dictionary.vercel.app',
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.post('/api/generate', async (req, res) => {
