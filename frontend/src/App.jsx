@@ -61,27 +61,31 @@ export default function App() {
     e.preventDefault();
     if (!query) return;
 
-    // 1. エンジン（関数）を定義する
-    const startSearching = async () => {
+    // 🌟 1. 一瞬で終わる「UIの表示切り替え」だけをまとめる
+    const updateUI = () => {
       setIsSearching(true);
       setResult(null);
       setError(false);
       setTrivia("i-tyaの知識を検索中...");
-      try {
-        const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
-        const trData = await trRes.json();
-        if(trData.trivia) setTrivia(trData.trivia);
-      } catch (err) {
-        console.log("トリビアの取得に失敗したぜ");
-      }
     };
 
+    // 🌟 2. 画面の遷移（アニメーション）だけを先にスパン！と発動させる
     if (document.startViewTransition) {
-      document.startViewTransition(startSearching);
+      document.startViewTransition(updateUI);
     } else {
-      startSearching();
+      updateUI();
     }
 
+    // 🌟 3. アニメーションが始まった「裏側」で、トリビアの通信をゆっくりやる
+    try {
+      const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
+      const trData = await trRes.json();
+      if(trData.trivia) setTrivia(trData.trivia);
+    } catch (err) {
+      console.log("トリビアの取得に失敗したぜ");
+    }
+
+    // 🌟 4. メインの単語生成APIも、画面が切り替わった後に裏で走らせる
     try {
       const response = await fetch('https://i-tya-dictionary.onrender.com/api/generate', {
         method: 'POST',
@@ -109,15 +113,12 @@ export default function App() {
       }
 
       if (data.data) {
-        // 【パターンA】Firestoreから「既存単語」が直接返ってきた場合
         parsedRoot = data.data.noun ? data.data.noun.slice(0, -1) : "-";
         displayWord = data.data[posKey] || data.data.noun || "???";
       } else if (data.status === 'complexed' || data.status === 'semi_complexed') {
-        // 【パターンB】複合概念（LLMからでも、Firestoreからでも）
         parsedRoot = "複合概念";
         displayWord = data.combination || "???";
       } else if (data.status === 'new' || data.status === 'existing') {
-        // 【パターンC】LLMが生成した「新規語幹」または「既存語幹」
         if (data.root) {
           parsedRoot = data.root;
           displayWord = data.root + suffix;
@@ -128,6 +129,8 @@ export default function App() {
 
       const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
 
+      // 🌟 5. 結果が出た時の画面更新。ここもスムーズに出したければ
+      // View Transitionで囲んでもいいが、今はそのままステート更新するぜ。
       setResult({
         status: finalStatus,
         concept: data.meaning || query,
