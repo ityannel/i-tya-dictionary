@@ -315,7 +315,18 @@ app.post('/api/generate', async (req, res) => {
     if (!wordSnap.empty) {
       const existingWord = wordSnap.docs[0].data();
       console.log(`[INFO] もう単語があります！: ${existingWord.word_noun} (ID: ${wordSnap.docs[0].id})`);
-      return res.json({ id: wordSnap.docs[0].id, data: { noun: existingWord.word_noun, verb: existingWord.word_verb, extender: existingWord.word_extender }, reason: "既存の単語が見つかりました！" });
+      
+      // 🚨 修正1：DBに保存された本物の解説（reason）を返す！ステータスも明記しろ！
+      return res.json({ 
+        status: "existing", // 👈 フロントが迷わないように明記
+        id: wordSnap.docs[0].id, 
+        data: { 
+          noun: existingWord.word_noun, 
+          verb: existingWord.word_verb, 
+          extender: existingWord.word_extender 
+        }, 
+        reason: existingWord.reason || "既存の単語ですが、詳細な解説データが保存されていません。" 
+      });
     }
 
     const complexSnap = await db.collection('itya_complex').where("concept_ja", "==", concept).get();
@@ -323,7 +334,7 @@ app.post('/api/generate', async (req, res) => {
       const complexWord = complexSnap.docs[0].data();
       console.log(`[INFO] 過去の複合語データベースから発見！: ${complexWord.combination} (ID: ${complexSnap.docs[0].id})`);
       
-      // AIが「complexed」を生成した時と同じフォーマットでフロントに返す
+      // 🚨 修正2：ここも同じだ！DBの解説を最優先で引っ張ってこい！
       return res.json({ 
         status: "complexed",
         meaning: complexWord.concept_ja,
@@ -331,7 +342,7 @@ app.post('/api/generate', async (req, res) => {
         complexity_type: complexWord.complexity_type || "semantic",
         components: complexWord.components || [],
         syntax_logic: complexWord.syntax_logic,
-        reason: "[データベースの記憶より] 過去に生成された複合概念です。" 
+        reason: complexWord.reason || "[データベースの記憶より] 過去に生成された複合概念ですが、詳細な解説がありません。" 
       });
     }
 
