@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wdth,wght@120,600&family=LINE+Seed+JP:wght@100;400;700;800&display=swap');
 
+* {
+    -webkit-tap-highlight-color: transparent;
+  }
+
 body {
   margin: 0;
   padding: 0;
@@ -13,14 +17,6 @@ body {
   text-align: center;
   align-items: flex-start; 
   padding-top: 10vh;
-}
-
-.trivia-text {
-  color: rgba(202, 255, 202, 1);
-  font-size: 1rem;
-  line-height: 1.6;
-  margin: 0;
-  animation: fadeIn 0.5s ease-out forwards;
 }
 
 .skeleton-line.concept-skel {
@@ -47,7 +43,32 @@ body {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #70ff70 transparent;
+
+  display: flex;
+  flex-direction: column;
 }
+
+
+.trivia-text {
+  color: rgba(202, 255, 202, 1);
+  font-size: 1.2rem;
+  line-height: 1.6;
+  margin: auto 0;
+  text-align: center;
+  animation: triviaFadeIn 0.8s ease-out forwards;
+}
+
+@keyframes triviaFadeIn{
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 
 .search-button.stored {
   position: fixed;
@@ -227,11 +248,24 @@ body {
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-position 0s;
 }
 
-.morph-input:hover, .morph-input:focus {
+@media (hover: hover) {
+  .morph-input:hover {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px 0 rgba(112, 255, 112, 0.15);
+  }
+
+  .search-button:hover {
+    transform: rotate(360deg) scale(1.1);
+  }
+}
+
+.morph-input:focus {
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(12px);
   box-shadow: 0 8px 32px 0 rgba(112, 255, 112, 0.15);
 }
+
 .search-button {
   flex-shrink: 0;
   width: 80px;
@@ -245,8 +279,7 @@ body {
   justify-content: center;
   align-items: center;
   z-index: 100;
-  view-transition-name: search-btn;
-  transition: all 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55), background-color 0.4s;
 }
 
 .search-button:hover {
@@ -354,4 +387,98 @@ body {
   padding: 2px 10px;
   font-size: 1.2rem;
   font-weight: 700;
+}
+
+/* 📱 スマホ専用（画面幅768px以下）のレイアウト調整 */
+@media (max-width: 768px) {
+
+  .content-wrapper {
+    width: 100%;
+    max-width: 85vw;
+  }
+
+  .search-panel {
+    border: none !important;
+    padding: 1px;
+  }
+
+  .search-form {
+    position: relative;
+    width: 100%;
+    display: block;
+  }
+
+  .search-button {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    margin: auto 0; 
+    
+    right: 10px;
+    width: 45px;
+    height: 45px;
+    z-index: 50;
+  }
+
+  .morph-box {
+    width: 100% !important;
+    border-radius: 30px;
+  }
+
+  .morph-input {
+    height: 60px;
+    min-height: 60px;
+    font-size: 1.2rem;
+    padding-left: 20px;
+    padding-right: 60px;
+    border: none; 
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }
+
+  .morph-box.expanded {
+    padding: 20px 15px 20px 15px; 
+    border-radius: 20px;
+  }
+
+  .search-button.stored {
+    position: absolute;
+    bottom: auto;
+    margin: 0;
+    top: 10px;
+    right: 10px;
+    width: 45px;
+    height: 45px;
+  }
+
+
+  .word-display {
+    font-size: clamp(2rem, 10vw, 3.5rem) !important;
+    word-break: keep-all;
+  }
+
+  .search-button:active {
+    transform: scale(0.9);
+    transition: transform 0.1s;
+  }
+
+  .search-button,
+  .morph-input {
+    touch-action: manipulation; 
+  }
+
+  .searching-text,
+  .concept-text {
+    padding-right: 55px;
+    min-height: 45px;
+  }
+
+  .trivia-box {
+    height: 160px;
+    margin-top: 10px;
+  }
 }

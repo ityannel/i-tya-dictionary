@@ -4,7 +4,6 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const admin = require('firebase-admin');
 
-// --- 1. Firestoreの初期化 ---
 const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -53,7 +52,7 @@ const ityaRules = `
 `;
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", systemInstruction: ityaRules});
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash", systemInstruction: ityaRules});
 
 const app = express();
 app.use(cors());
@@ -73,10 +72,8 @@ app.post('/api/generate', async (req, res) => {
     if (!wordSnap.empty) {
       const existingWord = wordSnap.docs[0].data();
       console.log(`[INFO] もう単語があります！: ${existingWord.word_noun} (ID: ${wordSnap.docs[0].id})`);
-      
-      // 🚨 修正1：DBに保存された本物の解説（reason）を返す！ステータスも明記しろ！
       return res.json({ 
-        status: "existing", // 👈 フロントが迷わないように明記
+        status: "existing",
         id: wordSnap.docs[0].id, 
         data: { 
           noun: existingWord.word_noun, 
@@ -91,8 +88,6 @@ app.post('/api/generate', async (req, res) => {
     if (!complexSnap.empty) {
       const complexWord = complexSnap.docs[0].data();
       console.log(`[INFO] 過去の複合語データベースから発見！: ${complexWord.combination} (ID: ${complexSnap.docs[0].id})`);
-      
-      // 🚨 修正2：ここも同じだ！DBの解説を最優先で引っ張ってこい！
       return res.json({ 
         status: "complexed",
         meaning: complexWord.concept_ja,
@@ -107,16 +102,12 @@ app.post('/api/generate', async (req, res) => {
     const allWords = await db.collection('itya_words').get();
     const checkListStr = allWords.docs.map(doc => {
     const d = doc.data();
-    // データベースのスキーマ違いを吸収する
     const w = d.word_noun || d.word_verb || d.word_extender;
-    
-    // もし w がなくて、直接 root が登録されていればそれを使う（今回インポートしたデータ用）
     if (!w) {
         if (d.root) return `${d.meaning || d.concept_ja}: ${d.root}`;
-        return ""; // 完全に壊れたデータは無視
+        return "";
     }
 
-    // 従来のデータ用
     const root = w.length <= 2 ? w : w.slice(0, -1);
     return `${d.concept_ja || d.meaning}: ${root}`;
     }).filter(line => line !== "").join(', ');
@@ -129,48 +120,59 @@ app.post('/api/generate', async (req, res) => {
     絶対にルールとJSONフォーマットに従い出力すること。`;
 
     let attempt = 0;
-    const maxAttempts = 3; // AIにチャンスを与える最大回数
+    const maxAttempts = 3;
     let aiRes = null;
     let currentPrompt = basePrompt;
 
-    while (attempt < maxAttempts) {
-      try {
-        console.log(`[LOG] AI生成試行 ${attempt + 1}回目...`);
-        const result = await model.generateContent([ityaRules, currentPrompt]);
-        const responseText = result.response.text().replace(/```json|```/g, '').trim();
-        aiRes = JSON.parse(responseText);
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-        if (aiRes.status === 'new') {
-          validateRoot(aiRes.root);
-        } else if (aiRes.status === 'semi_complexed' && Array.isArray(aiRes.words)) {
-          for (const word of aiRes.words) {
-            if (word.status === 'new') {
-              validateRoot(word.root);
+    async function generateWithRetry(concept, maxRetries = 3){
+      for (let attempt = 1; attempt <= maxRetries; attempt++){
+        try {
+          console.log(`[LOG] AI生成試行 ${attempt + 1}回目...`);
+          const result = await model.generateContent([ityaRules, currentPrompt]);
+          const responseText = result.response.text().replace(/```json|```/g, '').trim();
+          aiRes = JSON.parse(responseText);
+
+          if (aiRes.status === 'new') {
+            validateRoot(aiRes.root);
+          } else if (aiRes.status === 'semi_complexed' && Array.isArray(aiRes.words)) {
+            for (const word of aiRes.words) {
+              if (word.status === 'new') {
+                validateRoot(word.root);
+              }
             }
           }
+          
+          break; 
+          
+        } catch (validationError) {
+          attempt++;
+          console.warn(`[WARN] 違反単語を生成しました！（${attempt}回目）: ${validationError.message}`);
+          
+          if (attempt >= maxAttempts) {
+            throw new Error(`AIが${maxAttempts}回連続で違反しました！: ${validationError.message}`);
+          }
+
+          const waitTime = Math.pow(2, attempt) * 1000;
+
+          console.log(`[LOG] ${waitTime / 1000}秒待機して再試行します...`);
+          await sleep(waitTime);
+          
+          currentPrompt = basePrompt + `\n\n【システムからの絶対的警告】
+          前回あなたが生成した回答は、以下の致命的なルール違反により拒否されました：
+          「${validationError.message}」
+          前回の回答（語幹や組み合わせ）は完全に破棄し、この指摘を深く反省した上で、同じエラーを絶対に繰り返さないアプローチで再生成してください。`;
         }
-        
-        break; 
-        
-      } catch (validationError) {
-        attempt++;
-        console.warn(`[WARN] AIが違反した単語を生成した（${attempt}回目）: ${validationError.message}`);
-        
-        if (attempt >= maxAttempts) {
-          throw new Error(`AIが${maxAttempts}回連続で違反した！: ${validationError.message}`);
-        }
-        
-        currentPrompt = basePrompt + `\n\n【システムからの絶対的警告】
-        前回あなたが生成した回答は、以下の致命的なルール違反により拒否されました：
-        「${validationError.message}」
-        前回の回答（語幹や組み合わせ）は完全に破棄し、この指摘を深く反省した上で、同じエラーを絶対に繰り返さないアプローチで再生成してください。`;
       }
     }
 
+    await generateWithRetry(concept, maxAttempts);
     const batch = db.batch();
+    let root = data.root;
+    root = root ? root.toLowerCase() : null;
 
     if (aiRes.status === 'new') {
-      // 新語保存
       validateRoot(aiRes.root);
       const newDoc = db.collection('itya_words').doc();
       batch.set(newDoc, {
@@ -184,7 +186,6 @@ app.post('/api/generate', async (req, res) => {
       });
 
     } else if (aiRes.status === 'complexed') {
-      // 完全複合語保存
       const newComplex = db.collection('itya_complex').doc();
       batch.set(newComplex, {
         concept_ja: concept,
@@ -265,14 +266,14 @@ app.listen(PORT, () => {
 });
 
 function validateRoot(root) {
-  if (!root) throw new Error("AIが語幹を空っぽにしてきやがったぜ。");
+  if (!root) throw new Error("語幹が空！");
 
   if (/\s/.test(root)) {
-    throw new Error(`語幹にスペースが含まれてるぞ！ [${root}] 複合ならcomplexedを使え！`);
+    throw new Error(`語幹にスペース！ [${root}] `);
   }
 
   if (/[aiu]$/i.test(root)) {
-    throw new Error(`語幹の末尾が母音だ！子音か半母音で終わらせろ！: [${root}]`);
+    throw new Error(`語幹の末尾が母音！: [${root}]`);
   }
 
   const testWord = root + "a";
@@ -280,12 +281,12 @@ function validateRoot(root) {
   const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
 
   if (!ityaRegex.test(testWord)) {
-    throw new Error(`i-tyaの音韻規則に違反してるぞ！不正な子音の連続(hpaなど)や無効な文字が含まれてる: [${root}]`);
+    throw new Error(`i-tyaの音韻規則に違反しました！不正な子音の連続や無効な文字が含まれています: [${root}]`);
   }
 
   const vowelCount = (testWord.match(/[aiu]/g) || []).length;
 
   if (vowelCount <= 1) {
-    throw new Error(`レベル1の単語を捏造しようとしたな！: [${root}]`);
+    throw new Error(`レベル1の単語を作ったよ！: [${root}]`);
   }
 }
