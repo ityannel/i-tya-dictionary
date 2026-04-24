@@ -1,162 +1,219 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Search, Loader2 } from 'lucide-react';
 
-function App() {
-  const [concept, setConcept] = useState('');
+export default function App() {
+  const [query, setQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  const loadingMessages = [
+    "をデータベースから検索中...",
+    "の統語構造を分析中...",
+    "の説明を生成中..."
+  ];
+
+  useEffect(() => {
+    let interval;
+    if (isSearching) {
+      setLoadingStep(0);
+      interval = setInterval(() => {
+        setLoadingStep((prev) => (prev < loadingMessages.length - 1 ? prev + 1 : prev));
+      }, 1500);
+    }
+    return () => clearInterval(interval);
+  }, [isSearching]);
+
+  const resetSearch = () => {
+    const doReset = () => {
+      setIsSearching(false);
+      setResult(null);
+      setQuery('');
+      setError(false);
+    };
+
+    if (document.startViewTransition) {
+      document.startViewTransition(doReset);
+    } else {
+      doReset();
+    }
+  };               
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!concept) return;
-    setLoading(true);
+    if (!query) return;
+
+    const startSearching = () => {
+      setIsSearching(true);
+      setResult(null);
+      setError(false);
+    }
+    
+    if(document.startViewTransition){
+      document.startViewTransition(startSearching);
+    } else {
+      startSearching();
+    }
 
     try {
       const response = await fetch('https://i-tya-dictionary.onrender.com/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ concept: concept }),
+        body: JSON.stringify({ concept: query }),
       });
+      
       const data = await response.json();
-      setResult(data);
-    } catch (error) {
-      console.error("通信エラーだぜ:", error);
-      alert("APIサーバーに繋がらねぇ。Renderがスリープしてるかもな。");
+      
+      if (data.status === 'invalid' || data.status === 'invailed') {
+        setError(true);
+        setIsSearching(false);
+        return;
+      }
+      
+      let parsedRoot = "-";
+      let displayWord = "???";
+      let suffix = "a"; 
+      let posKey = "noun";
+      
+      if (data.part_of_speech === "verb") {
+        suffix = "i"; posKey = "verb";
+      } else if (data.part_of_speech === "extender") {
+        suffix = "u"; posKey = "extender";
+      }
+
+      if (data.data) {
+        // 【パターンA】Firestoreから「既存単語」が直接返ってきた場合
+        parsedRoot = data.data.noun ? data.data.noun.slice(0, -1) : "-";
+        displayWord = data.data[posKey] || data.data.noun || "???";
+      } else if (data.status === 'complexed' || data.status === 'semi_complexed') {
+        // 【パターンB】複合概念（LLMからでも、Firestoreからでも）
+        parsedRoot = "複合概念";
+        displayWord = data.combination || "???";
+      } else if (data.status === 'new' || data.status === 'existing') {
+        // 【パターンC】LLMが生成した「新規語幹」または「既存語幹」
+        if (data.root) {
+          parsedRoot = data.root;
+          displayWord = data.root + suffix;
+        } else {
+          displayWord = "???";
+        }
+      }
+
+      const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
+
+      setResult({
+        status: finalStatus,
+        concept: data.meaning || query,
+        root: parsedRoot,
+        displayWord: displayWord,
+        reason: data.reason || "解説はまだ準備されていません！"
+      });
+
+    } catch (err) {
+      console.error("通信エラー！", err);
+      setError(true);
     } finally {
-      setLoading(false);
+      setIsSearching(false);
     }
   };
 
-  // 表示用の単語データを整理する関数
-  const getDisplayData = () => {
+  const renderDisplayWord = () => {
     if (!result) return null;
     
-    let root = "";
-    let reason = result.reason || "";
-    let conceptJa = result.meaning || concept;
-
-    // AIが「既存のものを使え」と言ってきた時も、
-    // ユーザーにはその単語が何であるかを堂々と見せる。
-    if (result.status === 'new') {
-      root = result.root;
-    } else if (result.status === 'rejected' || result.status === 'complexed') {
-      root = result.existing_concept || result.combination || "???";
+    if (result.displayWord.includes(' ')) {
+      const words = result.displayWord.split(' ');
+      return (
+        <h2 className="word-display">
+          {words.map((word, index) => (
+            <React.Fragment key={index}>
+              {word}{index !== words.length - 1 && ' '}
+            </React.Fragment>
+          ))}
+        </h2>
+      );
     }
 
-    return { root, conceptJa, reason, status: result.status };
+    return (
+      <h2 className="word-display">
+        {result.displayWord}
+      </h2>
+    );
   };
 
-  const display = getDisplayData();
+  const isExpanded = isSearching || result || error;
 
   return (
-    <div style={{ 
-      padding: '40px 20px', 
-      fontFamily: '"JetBrains Mono", "Inter", "Hiragino Kaku Gothic ProN", sans-serif', 
-      maxWidth: '850px', 
-      margin: '0 auto',
-      color: '#1a1a1a',
-      lineHeight: '1.7'
-    }}>
-      <header style={{ textAlign: 'left', marginBottom: '80px', borderBottom: '1px solid #eee', paddingBottom: '20px' }}>
-        <h1 style={{ fontSize: '1rem', letterSpacing: '0.3em', color: '#888', fontWeight: '700', textTransform: 'uppercase' }}>i-tya / Protocol Language</h1>
-      </header>
-      
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '12px', marginBottom: '100px' }}>
-        <input
-          type="text"
-          value={concept}
-          onChange={(e) => setConcept(e.target.value)}
-          placeholder="概念を検索..."
-          style={{ 
-            flex: 1, padding: '18px 24px', fontSize: '1.2rem',
-            borderRadius: '16px', border: '2px solid #f0f0f0', outline: 'none',
-            backgroundColor: '#f8f8f8', transition: 'all 0.3s ease'
-          }}
-          onFocus={(e) => e.target.style.borderColor = '#000'}
-          onBlur={(e) => e.target.style.borderColor = '#f0f0f0'}
-        />
-        <button type="submit" disabled={loading} style={{ 
-          padding: '0 40px', borderRadius: '16px', border: 'none',
-          backgroundColor: '#000', color: '#fff', fontSize: '1.1rem', fontWeight: '700',
-          cursor: 'pointer', transition: '0.2s', opacity: loading ? 0.5 : 1
-        }}>
-          {loading ? '...' : 'SEARCH'}
-        </button>
-      </form>
+    <div className="app-container">
+      <div className={`content-wrapper ${isExpanded ? 'moved-up' : ''}`}>
+        <h1 className={`main-title ${isExpanded ? 'squashed' : ''}`}>
+          Swa i-tya!
+        </h1>
 
-      {display && (
-        <div style={{ animation: 'slideUp 0.6s cubic-bezier(0.23, 1, 0.32, 1)' }}>
-          {/* メインの単語表示セクション */}
-          <section style={{ marginBottom: '60px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '20px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '5rem', margin: 0, fontFamily: '"JetBrains Mono", monospace', fontWeight: '800', letterSpacing: '-0.05em' }}>
-                {display.root}
-              </h2>
-              <span style={{ fontSize: '2rem', color: '#ccc', fontWeight: '300' }}>/</span>
-              <span style={{ fontSize: '2rem', color: '#444', fontWeight: '600' }}>{display.conceptJa}</span>
-            </div>
-            <div style={{ marginTop: '10px' }}>
-              <span style={{ 
-                fontSize: '0.75rem', 
-                letterSpacing: '0.1em',
-                fontWeight: '800',
-                color: display.status === 'new' ? '#3b82f6' : '#10b981',
-                textTransform: 'uppercase'
-              }}>
-                {display.status === 'new' ? '• AI PROPOSAL' : '• OFFICIAL ARCHIVE'}
-              </span>
-            </div>
-          </section>
+        <form id="search-form" onSubmit={handleSearch} className="search-form">
+          <div className={`morph-box ${isExpanded ? 'expanded' : ''}`}>
+            
+            <input 
+              type="text" 
+              className={`morph-input ${isExpanded ? 'hidden' : ''}`}
+              placeholder="日本語で検索..."
+              value={query}
+              onChange={(e)=>setQuery(e.target.value)}
+              disabled={isExpanded}
+            />
 
-          {/* 詞型（派生）リスト - カードスタイル */}
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '60px' }}>
-            {[
-              { label: '名詞', suffix: 'a', desc: '概念の固定' },
-              { label: '動詞', suffix: 'i', desc: '事象の推移' },
-              { label: '拡張', suffix: 'u', desc: '性質の付与' }
-            ].map((type) => (
-              <div key={type.suffix} style={{ 
-                background: '#fff', padding: '24px', borderRadius: '20px', 
-                border: '1px solid #eee', boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
-              }}>
-                <div style={{ fontSize: '0.7rem', color: '#aaa', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase' }}>{type.label} / -{type.suffix}</div>
-                <div style={{ fontSize: '1.5rem', fontFamily: '"JetBrains Mono", monospace', fontWeight: '700', color: '#000' }}>{display.root}{type.suffix}</div>
-                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>{type.desc}</div>
+            {isSearching && (
+              <div className="skeleton-wrapper fade-in-up">
+                <p className="searching-text">
+                  <span>{query}</span> {loadingMessages[loadingStep]}
+                </p>
+                <div className="skeleton-container">
+                  <div className="skeleton-box short"></div>
+                  <div className="skeleton-line"></div>
+                  <div className="skeleton-line mid"></div>
+                  <div className="skeleton-box tall"></div>
+                </div>
               </div>
-            ))}
-          </section>
+            )}
 
-          {/* 学術的解説セクション */}
-          <section style={{ backgroundColor: '#fff', borderRadius: '24px' }}>
-            <h3 style={{ 
-              fontSize: '0.8rem', 
-              color: '#aaa', 
-              fontWeight: '800', 
-              marginBottom: '20px', 
-              textTransform: 'uppercase',
-              letterSpacing: '0.2em'
-            }}>語源と解説 / Etymology & Commentary</h3>
-            <div style={{ 
-              fontSize: '1.15rem', 
-              color: '#222', 
-              lineHeight: '2', 
-              whiteSpace: 'pre-wrap',
-              textAlign: 'justify'
-            }}>
-              {display.reason}
-            </div>
-          </section>
-        </div>
-      )}
+            {result && !isSearching && !error && (
+              <div className="inner-result fade-in-up">
+                
+                <p className="concept-text">
+                  {result.concept}
+                  {result.status === 'new' && (
+                    <span className="badge badge-new">新規</span>
+                  )}
+                  {(result.status === 'complexed' || result.status === 'semi_complexed') && (
+                    <span className="badge badge-compound">複合概念</span>
+                  )}
+                </p>
 
-      <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        ::placeholder { color: #ccc; }
-      `}</style>
+                {renderDisplayWord()}
+                <div className="reason-text">
+                  {result.reason}
+                </div>
+              </div>
+            )}
+
+            {error && !isSearching && (
+              <div className="inner-result fade-in-up">
+                <p className="concept-text" style={{ color: '#ff4d4d' }}>エラー！</p>
+                <h2 className="word-display" style={{ borderColor: '#ff4d4d', color: 'white' }}>Error</h2>
+                <div className="reason-text">データベースとの接続に失敗しました！</div>
+              </div>
+            )}
+          </div>
+
+          <button 
+            onClick={isExpanded ? resetSearch : handleSearch}
+            type={!isExpanded ? "submit" : "button"}
+            className={`search-button ${isExpanded ? 'stored' : ''}`}
+          >
+            <Search size={28} strokeWidth={3.5} />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
-
-export default App;
