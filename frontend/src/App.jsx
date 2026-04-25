@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback} from 'react';
 import { Search, Loader2 } from 'lucide-react';
+import DictionaryList from './DictionaryList';
 
 export default function App() {
   const [query, setQuery] = useState('');
@@ -37,7 +38,7 @@ export default function App() {
         } catch (err) {
           console.log("トリビアの定期取得に失敗！");
         }
-      }, 5000); // 5000ミリ秒 ＝ 5秒！
+      }, 5000);
     }
     return () => clearInterval(triviaInterval);
   }, [isSearching]);
@@ -61,31 +62,27 @@ export default function App() {
     e.preventDefault();
     if (!query) return;
 
-    // 🌟 1. 一瞬で終わる「UIの表示切り替え」だけをまとめる
     const updateUI = () => {
       setIsSearching(true);
       setResult(null);
       setError(false);
-      setTrivia("i-tyaの知識を検索中...");
+      setTrivia("i-tyaのトリビアを読み込み中...");
     };
 
-    // 🌟 2. 画面の遷移（アニメーション）だけを先にスパン！と発動させる
     if (document.startViewTransition) {
       document.startViewTransition(updateUI);
     } else {
       updateUI();
     }
 
-    // 🌟 3. アニメーションが始まった「裏側」で、トリビアの通信をゆっくりやる
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
       const trData = await trRes.json();
       if(trData.trivia) setTrivia(trData.trivia);
     } catch (err) {
-      console.log("トリビアの取得に失敗したぜ");
+      console.log("トリビアの取得に失敗！");
     }
 
-    // 🌟 4. メインの単語生成APIも、画面が切り替わった後に裏で走らせる
     try {
       const response = await fetch('https://i-tya-dictionary.onrender.com/api/generate', {
         method: 'POST',
@@ -266,6 +263,12 @@ export default function App() {
             <Search size={28} strokeWidth={3.5} />
           </button>
         </form>
+
+        {!isExpanded && (
+          <div className="dictionary-wrapper fade-in-up">
+            <DictionaryList />
+          </div>
+        )}
       </div>
     </div>
   );

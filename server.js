@@ -5,6 +5,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const admin = require('firebase-admin');
 
 const serviceAccount = require('./serviceAccountKey.json');
+const { parse } = require('dotenv');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
@@ -248,8 +249,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview", systemInstruction: ityaRules});
 
 const app = express();
+const allowedOrigins = ['https://i-tya-dictionary.vercel.app', 'http://localhost:5174', 'http://localhost:5173'];
 const corsOptions = {
-  origin: 'https://i-tya-dictionary.vercel.app',
+  origin: allowedOrigins,
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
@@ -325,9 +327,8 @@ app.post('/api/generate', async (req, res) => {
 
     async function performAiGeneration(concept, maxRetries) {
   let currentPrompt = basePrompt;
-  let validationFailCount = 0; // 🚨 ルール違反のカウント
+  let validationFailCount = 0;
 
-  // 10回くらい回す覚悟でいろ。ただしルール違反は3回までだ。
   for (let attempt = 1; attempt <= 10; attempt++) {
     try {
       console.log(`[LOG] AI生成試行 ${attempt}回目...`);
@@ -335,17 +336,12 @@ app.post('/api/generate', async (req, res) => {
       const text = result.response.text().replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(text);
 
-      // サニタイズ（大文字を小文字に強制変換）
       if (parsed.root) parsed.root = parsed.root.toLowerCase();
-      
-      // バリデーション実行
       if (parsed.status === 'new') validateRoot(parsed.root);
-      // (semi_complexedのバリデーションもここに入れる)
 
-      return parsed; // ✅ 成功したら即座に返す！
+      return parsed;
 
     } catch (err) {
-      // 🚨 503エラー（High Demand）の場合は、ルール違反カウントを増やさずにリトライ！
       const isApiError = err.message.includes("503") || err.message.includes("Service Unavailable");
       
       if (!isApiError) {
@@ -359,7 +355,6 @@ app.post('/api/generate', async (req, res) => {
         throw new Error(`AIが${maxRetries}回連続でミス！`);
       }
 
-      // エクスポネンシャル・バックオフ（待機）
       const waitTime = Math.pow(2, Math.min(attempt, 5)) * 1000;
       console.log(`[LOG] ${waitTime / 1000}秒待機して再開`);
       await new Promise(r => setTimeout(r, waitTime));
@@ -491,3 +486,78 @@ function validateRoot(root) {
     throw new Error(`レベル1の単語を作ったよ！: [${root}]`);
   }
 }
+
+const ityaOrder = {'a': 1, 'i': 2, 'u': 3, 'h': 4, 'k': 5, 'l': 6, 'm': 7, 'n': 8, 'p': 9, 's': 10, 't': 11, 'w': 12, 'y': 13};
+
+function sortItyaWords(a, b) {
+  const wordA = (a.word || "").toLowerCase();
+  const wordB = (b.word || "").toLowerCase();
+  const len = Math.min(wordA.length, wordB.length);
+
+  for (let i = 0; i < len; i++) {
+    const weightA = ityaOrder[wordA[i]] || 99;
+    const weightB = ityaOrder[wordB[i]] || 99;
+    if ( weightA !== weightB ) return weightA - weightB;
+  }
+
+  return wordA.length - wordB.length;
+}
+
+app.get('/api/dictionary', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 20;
+    const letter = (req.query.letter || "").toLowerCase();
+
+    const [wordSnap, complexSnap] = await Promise.all([
+      db.collection('itya_words').get(),
+      db.collection('itya_complex').get()
+    ]);
+
+    let allEntries = [];
+
+    wordSnap.forEach(doc => {
+      const d = doc.data();
+      const displayWord = d.word_noun || d.word_verb || d.word_extender || "";
+      allEntries.push({
+        id: doc.id,
+        type: 'word',
+        word: displayWord,
+        meaning: d.concept_ja,
+        fullData: d
+      });
+    });
+
+    complexSnap.forEach(doc => {
+      const d = doc.data();
+      allEntries.push({
+        id: doc.id,
+        type: 'complex',
+        word: displayWord,
+        meaning: d.concept_ja,
+        fullData: d
+      });
+    });
+
+    if(letter && letter !== "all"){
+      allEntries = allEntries.filter (e => 
+        e.word.toLowerCase().includes(search) ||
+        e.meaning.includes(search)
+      );
+    }
+
+    allEntries.sort(sortItyaWords);
+
+    const startIndex = (page - 1) * limit;
+    const paginatedWords = allEntries.slice(startIndex, startIndex + limit);
+
+    res.json({
+      words: paginatedWords,
+      hasMore: startIndex + limit < allEntries.length
+    });
+
+  } catch (error) {
+    console.error("辞書取得エラー:", error);
+    res.status(500).json({ error: "Failed to fetch dictionary" });
+  }
+});
