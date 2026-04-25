@@ -519,31 +519,39 @@ app.get('/api/dictionary', async (req, res) => {
     wordSnap.forEach(doc => {
       const d = doc.data();
       const displayWord = d.word_noun || d.word_verb || d.word_extender || "";
-      allEntries.push({
-        id: doc.id,
-        type: 'word',
-        word: displayWord,
-        meaning: d.concept_ja,
-        fullData: d
-      });
+      const meaning = d.concept_ja || "意味不明";
+
+      if (displayWord){
+        allEntries.push({
+          id: doc.id,
+          type: 'word',
+          word: displayWord,
+          meaning: meaning,
+          fullData: d
+        });
+      }
+    });
+
+    wordsSnap.forEach(doc => {
+      const d = doc.data();
+      const displayWord = d.word_noun || d.word_verb || d.word_extender || "";
+      const meaning = d.concept_ja || "意味不明";
+      if (displayWord) {
+        allEntries.push({ id: doc.id, type: 'word', word: displayWord, meaning: meaning, fullData: d });
+      }
     });
 
     complexSnap.forEach(doc => {
       const d = doc.data();
-      allEntries.push({
-        id: doc.id,
-        type: 'complex',
-        word: displayWord,
-        meaning: d.concept_ja,
-        fullData: d
-      });
+      const displayWord = d.combination || "";
+      const meaning = d.concept_ja || "意味不明";
+      if (displayWord) {
+        allEntries.push({ id: doc.id, type: 'complex', word: displayWord, meaning: meaning, fullData: d });
+      }
     });
 
-    if(letter && letter !== "all"){
-      allEntries = allEntries.filter (e => 
-        e.word.toLowerCase().includes(search) ||
-        e.meaning.includes(search)
-      );
+    if (letter && letter !== 'all') {
+      allEntries = allEntries.filter(e => e.word.toLowerCase().startsWith(letter));
     }
 
     allEntries.sort(sortItyaWords);
@@ -558,6 +566,6 @@ app.get('/api/dictionary', async (req, res) => {
 
   } catch (error) {
     console.error("辞書取得エラー:", error);
-    res.status(500).json({ error: "Failed to fetch dictionary" });
+    res.status(500).json({ words: [], hasMore: false, error: "Failed to fetch dictionary" });
   }
 });
