@@ -507,35 +507,20 @@ app.get('/api/dictionary', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
-    const letter = (req.query.letter || "").toLowerCase();
+    const letter = (req.query.letter || req.query.search || "").toLowerCase();
 
-    const [wordSnap, complexSnap] = await Promise.all([
+    const [wordsSnap, complexSnap] = await Promise.all([
       db.collection('itya_words').get(),
       db.collection('itya_complex').get()
     ]);
 
     let allEntries = [];
 
-    wordSnap.forEach(doc => {
-      const d = doc.data();
-      const displayWord = d.word_noun || d.word_verb || d.word_extender || "";
-      const meaning = d.concept_ja || "意味不明";
-
-      if (displayWord){
-        allEntries.push({
-          id: doc.id,
-          type: 'word',
-          word: displayWord,
-          meaning: meaning,
-          fullData: d
-        });
-      }
-    });
-
     wordsSnap.forEach(doc => {
       const d = doc.data();
       const displayWord = d.word_noun || d.word_verb || d.word_extender || "";
       const meaning = d.concept_ja || "意味不明";
+      
       if (displayWord) {
         allEntries.push({ id: doc.id, type: 'word', word: displayWord, meaning: meaning, fullData: d });
       }
@@ -545,6 +530,7 @@ app.get('/api/dictionary', async (req, res) => {
       const d = doc.data();
       const displayWord = d.combination || "";
       const meaning = d.concept_ja || "意味不明";
+      
       if (displayWord) {
         allEntries.push({ id: doc.id, type: 'complex', word: displayWord, meaning: meaning, fullData: d });
       }
