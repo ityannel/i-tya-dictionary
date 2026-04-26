@@ -249,11 +249,23 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview", systemInstruction: ityaRules});
 
 const app = express();
-const allowedOrigins = ['https://i-tya-dictionary.vercel.app', 'http://localhost:5174', 'http://localhost:5173'];
+const allowedOrigins = [
+  'https://i-tya-dictionary.vercel.app',
+  'http://localhost:5174',
+  'http://localhost:5173'
+];
+
 const corsOptions = {
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   optionsSuccessStatus: 200
 };
+
 app.use(cors(corsOptions));
 app.use(express.json());
 
