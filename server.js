@@ -318,10 +318,8 @@ app.post('/api/generate', async (req, res) => {
     上記のリストを必ず確認し、類似・包含される概念がすでに存在しないかを最優先で精査しなさい。
     絶対にルールとJSONフォーマットに従い出力すること。`;
 
-    let attempt = 0;
-    const maxAttempts = 3;
+
     let aiRes = null;
-    let currentPrompt = basePrompt;
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -368,75 +366,103 @@ app.post('/api/generate', async (req, res) => {
     aiRes = await performAiGeneration(concept, maxAttempts);
     const batch = db.batch();
 
-    if (aiRes.status === 'new') {
-      validateRoot(aiRes.root);
-      const newDoc = db.collection('itya_words').doc();
-      batch.set(newDoc, {
-        concept_ja: concept,
-        word_noun: aiRes.root + "a",
-        word_verb: aiRes.root + "i",
-        word_extender: aiRes.root + "u",
-        reason: aiRes.reason,
-        level: 2,
-        created_at: admin.firestore.FieldValue.serverTimestamp()
-      });
+    aiRes = await performAiGeneration(concept, maxAttempts);
 
-    } else if (aiRes.status === 'complexed') {
-      const newComplex = db.collection('itya_complex').doc();
-      batch.set(newComplex, {
-        concept_ja: concept,
-        combination: aiRes.combination,
-        complexity_type: aiRes.complexity_type,
-        components: aiRes.components,
-        syntax_logic: aiRes.syntax_logic,
-        reason: aiRes.reason,
-        created_at: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-    } else if (aiRes.status === 'semi_complexed') {
-      if (Array.isArray(aiRes.words)) {
-        for (const w of aiRes.words) {
-          if (w.status === 'new') {
-            validateRoot(w.root);
-            const partDoc = db.collection('itya_words').doc();
-            batch.set(partDoc, {
-              concept_ja: w.meaning || `(Part of ${concept})`,
-              word_noun: w.root + "a",
-              word_verb: w.root + "i",
-              word_extender: w.root + "u",
-              reason: w.reason || "複合語の構成要素として生成",
-              level: 2,
-              created_at: admin.firestore.FieldValue.serverTimestamp()
-            });
-          }
-        }
-      }
-      
-      const newComplex = db.collection('itya_complex').doc();
-      batch.set(newComplex, {
-        concept_ja: concept,
-        combination: aiRes.combination,
-        words: aiRes.words,
-        reason: aiRes.reason,
-        created_at: admin.firestore.FieldValue.serverTimestamp()
-      });
-    }
-
-    if (aiRes.trivia) {
-      const triviaDoc = db.collection('itya_trivia').doc();
-      batch.set(triviaDoc, {
-        content: aiRes.trivia,
-        created_at: admin.firestore.FieldValue.serverTimestamp()
-      });
-    }
-
-    await batch.commit();
-    res.json(aiRes);
-
-  } catch (error) {
-    console.error("エラー！:", error);
-    res.status(500).json({ error: error.message });
+// AIが既存概念と判断した場合、DBから該当単語を引いてそのまま返す
+if (aiRes.status === 'existing' && aiRes['root_word.2']) {
+  const root = aiRes['root_word.2'];
+  const snap = await db.collection('itya_words')
+    .where('word_noun', '==', root + 'a')
+    .get();
+  if (!snap.empty) {
+    const d = snap.docs[0].data();
+    return res.json({
+      status: 'existing',
+      id: snap.docs[0].id,
+      meaning: d.concept_ja,
+      data: {
+        noun: d.word_noun,
+        verb: d.word_verb,
+        extender: d.word_extender
+      },
+      reason: d.reason || "既存の単語です。"
+    });
   }
+}
+
+const batch = db.batch();
+
+if (aiRes.status === 'new') {
+  validateRoot(aiRes.root);
+  const newDoc = db.collection('itya_words').doc();
+  batch.set(newDoc, {
+    concept_ja: concept,
+    word_noun: aiRes.root + "a",
+    word_verb: aiRes.root + "i",
+    word_extender: aiRes.root + "u",
+    reason: aiRes.reason,
+    level: 2,
+    created_at: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+} else if (aiRes.status === 'complexed') {
+  const newComplex = db.collection('itya_complex').doc();
+  batch.set(newComplex, {
+    concept_ja: concept,
+    combination: aiRes.combination,
+    complexity_type: aiRes.complexity_type,
+    components: aiRes.components,
+    syntax_logic: aiRes.syntax_logic,
+    reason: aiRes.reason,
+    created_at: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+} else if (aiRes.status === 'semi_complexed') {
+  if (Array.isArray(aiRes.words)) {
+    for (const w of aiRes.words) {
+      if (w.status === 'new') {
+        validateRoot(w.root);
+        const partDoc = db.collection('itya_words').doc();
+        batch.set(partDoc, {
+          concept_ja: w.meaning || `(Part of ${concept})`,
+          word_noun: w.root + "a",
+          word_verb: w.root + "i",
+          word_extender: w.root + "u",
+          reason: w.reason || "複合語の構成要素として生成",
+          level: 2,
+          created_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    }
+  }
+  
+  const newComplex = db.collection('itya_complex').doc();
+  batch.set(newComplex, {
+    concept_ja: concept,
+    combination: aiRes.combination,
+    words: aiRes.words,
+    reason: aiRes.reason,
+    created_at: admin.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+if (aiRes.trivia) {
+  const triviaDoc = db.collection('itya_trivia').doc();
+  batch.set(triviaDoc, {
+    content: aiRes.trivia,
+    created_at: admin.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+await batch.commit();
+cacheDictionary = null;
+lastFetchTime = 0;
+res.json(aiRes);
+
+} catch (error) {
+  console.error("エラー！:", error);
+  res.status(500).json({ error: error.message });
+}
 });
 
 app.get('/api/trivias', async (req, res) => {
@@ -559,7 +585,7 @@ app.get('/api/dictionary', async (req, res) => {
 
     cacheDictionary = allEntries;
     lastFetchTime = Date.now();
-    
+
     if (letter && letter !== 'all') {
       allEntries = allEntries.filter(e => e.word.toLowerCase().startsWith(letter));
     }
