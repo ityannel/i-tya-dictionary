@@ -684,4 +684,8 @@ body {
     width: 40px;
     height: 40px;
   }
+
+  .dictionary-container {
+  margin-top: 0;
+}
 }
