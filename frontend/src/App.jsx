@@ -14,6 +14,7 @@ export default function App() {
   const [showTopBtn, setShowTopBtn] = useState(false);
   const clickedWordIdRef = useRef(null);
   const [dbTrivias, setDbTrivias] = useState([]);
+  const [currentTrivia, setCurrentTrivia] = useState("トリビアを読み込み中...");
   const [triviaIndex, setTriviaIndex] = useState(0);
 
   useEffect(() => {

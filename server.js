@@ -448,7 +448,7 @@ app.get('/api/trivias', async (req, res) => {
     const triviasArray = snapshot.docs.map(doc => doc.data().content);
     res.json(triviasArray);
     
-  } catch (error) {
+  }} catch (error) {
     console.error("トリビア取得エラー:", error);
     res.status(500).json({ error: "Failed to fetch trivias" });
   }
