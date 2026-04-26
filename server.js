@@ -362,7 +362,7 @@ app.post('/api/generate', async (req, res) => {
     }
   }
 }
-
+    const maxAttempts = 3;
     aiRes = await performAiGeneration(concept, maxAttempts);
 
 // AIが既存概念と判断した場合、DBから該当単語を引いてそのまま返す

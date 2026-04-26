@@ -156,13 +156,6 @@ export default function App() {
         suffix = "u"; posKey = "extender";
       }
 
-      if (data.status === 'existing' && data['root_word.2']) {
-        parsedRoot = data['root_word.2'];
-        const pos = data['part_of_speech_word.2'] || 'noun';
-        const sfx = pos === 'verb' ? 'i' : pos === 'extender' ? 'u' : 'a';
-        displayWord = parsedRoot + sfx;
-      }
-
       if (data.data) {
         parsedRoot = data.data.noun ? data.data.noun.slice(0, -1) : "-";
         displayWord = data.data[posKey] || data.data.noun || "???";
