@@ -364,9 +364,6 @@ app.post('/api/generate', async (req, res) => {
 }
 
     aiRes = await performAiGeneration(concept, maxAttempts);
-    const batch = db.batch();
-
-    aiRes = await performAiGeneration(concept, maxAttempts);
 
 // AIが既存概念と判断した場合、DBから該当単語を引いてそのまま返す
 if (aiRes.status === 'existing' && aiRes['root_word.2']) {
