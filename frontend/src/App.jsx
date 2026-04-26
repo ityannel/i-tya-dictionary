@@ -13,24 +13,22 @@ export default function App() {
   const [trivia, setTrivia] = useState('');
   const [showTopBtn, setShowTopBtn] = useState(false);
   const clickedWordIdRef = useRef(null);
-  const [dbTrivias, setDbTrivias] = useState([]);
-  const [currentTrivia, setCurrentTrivia] = useState("トリビアを読み込み中...");
-  const [triviaIndex, setTriviaIndex] = useState(0);
 
   useEffect(() => {
-      const fetchAllTrivias = async () => {
+    let triviaInterval;
+    if (isSearching) {
+      triviaInterval = setInterval(async () => {
         try {
-          const res = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setDbTrivias(data);
-          }
+          const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
+          const trData = await trRes.json();
+          if (trData.trivia) setTrivia(trData.trivia);
         } catch (err) {
-          console.error("トリビアのキャッシュに失敗:", err);
+          console.log("トリビアの定期取得に失敗！", err);
         }
-      };
-      fetchAllTrivias();
-    }, []);
+      }, 5000);
+    }
+    return () => clearInterval(triviaInterval);
+  }, [isSearching]);
 
     useEffect(() => {
       const handleScroll = () => {
@@ -39,19 +37,6 @@ export default function App() {
       window.addEventListener('scroll', handleScroll);
       return () => window.removeEventListener('scroll', handleScroll);
     }, []);
-
-    useEffect(() => {
-      let timer;
-      if (isSearching && dbTrivias.length > 0) {
-        setCurrentTrivia(dbTrivias[Math.floor(Math.random() * dbTrivias.length)]);
-
-        timer = setInterval(() => {
-          const randomTrivia = dbTrivias[Math.floor(Math.random() * dbTrivias.length)];
-          setCurrentTrivia(randomTrivia);
-        }, 5000);
-      }
-      return () => clearInterval(timer);
-    }, [isSearching, dbTrivias]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -63,7 +48,6 @@ export default function App() {
     "の説明を生成中..."
   ];
 
-  // ローディング段階切り替え
   useEffect(() => {
     let interval;
     if (isSearching) {
@@ -113,17 +97,28 @@ export default function App() {
     });
   };
 
-  // 検索実行
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!query || isSearching) return;
     clickedWordIdRef.current = null;
 
-    const updateUI = () => {
+    const updateUI = async () => {
       setIsSearching(true);
       setResult(null);
       setError(false);
       setTrivia("トリビアを読み込み中...");
+
+      try {
+        const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
+        const trData = await trRes.json();
+        if (Array.isArray(trData) && trData.length > 0) {
+          const random = trData[Math.floor(Math.random() * trData.length)];
+          setTrivia(random);
+        }
+      } catch (err) {
+        console.log("初回トリビアの取得に失敗しました。");
+      }
+
     };
 
     if (document.startViewTransition) {
@@ -156,6 +151,13 @@ export default function App() {
         suffix = "i"; posKey = "verb";
       } else if (data.part_of_speech === "extender") {
         suffix = "u"; posKey = "extender";
+      }
+
+      if (data.status === 'existing' && data['root_word.2']) {
+        parsedRoot = data['root_word.2'];
+        const pos = data['part_of_speech_word.2'] || 'noun';
+        const sfx = pos === 'verb' ? 'i' : pos === 'extender' ? 'u' : 'a';
+        displayWord = parsedRoot + sfx;
       }
 
       if (data.data) {
@@ -215,6 +217,7 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     const showDetail = () => {
+      setTrivia('');
       let parsedRoot = wordData.fullData?.root || "-";
       if (wordData.type === 'complex') parsedRoot = "複合概念";
 
@@ -256,7 +259,6 @@ export default function App() {
       setTimeout(shoot, 100);
       setTimeout(shoot, 200);
     } else if (type === 'fireworks') {
-      // 3. 打ち上げ花火
       (function frame() {
         confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#70ff70'] });
         confetti({ particleCount: 2, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ffffff'] });
@@ -295,7 +297,7 @@ export default function App() {
                 </p>
                 {trivia && (
                   <div className="trivia-box">
-                    <span className="trivia-text">{currentTrivia}</span>
+                    <span className="trivia-text">{trivia}</span>
                   </div>
                 )}
                 <div className="skeleton-line concept-skel"></div>

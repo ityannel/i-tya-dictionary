@@ -441,14 +441,15 @@ app.post('/api/generate', async (req, res) => {
 
 app.get('/api/trivias', async (req, res) => {
   try {
-    const snapshot = await db.collection('itya_trivia').get();
+    const snapshot = await db.collection('itya_trivia').limit(50).get();
 
     if (snapshot.empty) {
       return res.json(["i-tyaは、日常生活における迅速な意思疎通を最優先に設計された言語です。"]);
+    }
     const triviasArray = snapshot.docs.map(doc => doc.data().content);
     res.json(triviasArray);
     
-  }} catch (error) {
+  } catch (error) {
     console.error("トリビア取得エラー:", error);
     res.status(500).json({ error: "Failed to fetch trivias" });
   }
@@ -534,6 +535,9 @@ app.get('/api/dictionary', async (req, res) => {
       db.collection('itya_complex').get()
     ]);
 
+    cacheDictionary = allEntries;
+    lastFetchTime = Date.now();
+    
     let allEntries = [];
 
     wordsSnap.forEach(doc => {
