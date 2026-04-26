@@ -195,9 +195,13 @@ export default function App() {
       setTrivia(data.trivia || "この概念に関するトリビアはまだないぜ。");
       setIsSearching(false);
 
-      if (document.startViewTransition) {
-        document.startViewTransition(finishSearching);
-      } else {
+      try {
+        if (document.startViewTransition) {
+          document.startViewTransition(finishSearching);
+        } else {
+          finishSearching();
+        }
+      } catch {
         finishSearching();
       }
 

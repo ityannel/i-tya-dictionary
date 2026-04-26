@@ -688,4 +688,10 @@ body {
   .dictionary-container {
   margin-top: 0;
 }
+.trivia-text {
+  font-size: 0.9rem;
+}
+.search-form {
+  margin-bottom: 1rem; /* 元の5remから縮める */
+}
 }
