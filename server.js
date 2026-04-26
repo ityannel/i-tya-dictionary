@@ -535,9 +535,6 @@ app.get('/api/dictionary', async (req, res) => {
       db.collection('itya_complex').get()
     ]);
 
-    cacheDictionary = allEntries;
-    lastFetchTime = Date.now();
-    
     let allEntries = [];
 
     wordsSnap.forEach(doc => {
@@ -560,6 +557,9 @@ app.get('/api/dictionary', async (req, res) => {
       }
     });
 
+    cacheDictionary = allEntries;
+    lastFetchTime = Date.now();
+    
     if (letter && letter !== 'all') {
       allEntries = allEntries.filter(e => e.word.toLowerCase().startsWith(letter));
     }
