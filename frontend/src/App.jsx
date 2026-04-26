@@ -21,7 +21,10 @@ export default function App() {
         try {
           const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
           const trData = await trRes.json();
-          if (trData.trivia) setTrivia(trData.trivia);
+          if (Array.isArray(trData) && trData.length > 0) {
+            const random = trData[Math.floor(Math.random() * trData.length)];
+            setTrivia(random);
+          }
         } catch (err) {
           console.log("トリビアの定期取得に失敗！", err);
         }

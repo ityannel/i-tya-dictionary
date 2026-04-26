@@ -38,7 +38,7 @@ export default function DictionaryList({onWordClick}){
         });
         
         setHasMore(data.hasMore);
-      } catch (err) {
+      } catch (error) {
             console.error('辞書の読み込みに失敗。。', error);
         } finally {
             setIsLoading(false);
@@ -59,7 +59,7 @@ export default function DictionaryList({onWordClick}){
         {alphabets.map(char => (
           <button 
             key={char} 
-            onClick={() => handleIndexClick(char)} 
+            onClick={() => handleIndexClick(char)}
             className={`index-btn ${selectedLetter === char ? 'active' : ''}`}
           >
             {char === 'all' ? 'ALL' : char}
