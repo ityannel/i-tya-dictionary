@@ -34,7 +34,7 @@ body {
 
 .trivia-box {
   background: rgba(112, 255, 112, 0.05);
-  border-left: 4px solid #70ff70;
+  border-left: 4px solid rgba(112, 255, 112, 1);
   padding: 15px 20px;
   border-radius: 0 12px 12px 0;
   margin-bottom: 25px;
@@ -42,7 +42,7 @@ body {
   height: 80px; 
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #70ff70 transparent;
+  scrollbar-color: rgba(112,255,112,1) transparent;
 
   display: flex;
   flex-direction: column;
@@ -74,7 +74,6 @@ body {
   position: fixed;
   top: 30px;
   right: 30px;
-  transform: scale(0.8) rotate(360deg);
 }
 
 .main-title {
@@ -114,7 +113,7 @@ body {
 
 .search-panel {
   width: 100%;
-  border: 3px solid #70ff70;
+  border: 3px solid rgba(112,255,112,1);
   border-radius: 32px;
   padding: 30px;
   background-color: transparent;
@@ -131,7 +130,7 @@ body {
 }
 
 .searching-text span {
-  color: #70ff70;
+  color: rgba(112,255,112,1);
   font-size: 1.5rem;
 }
 
@@ -171,7 +170,7 @@ body {
   max-width: 100%;
   flex-grow: 1;
   background: transparent;
-  border: 4px solid #70ff70;
+  border: 4px solid rgba(112,255,112,1);
   border-radius: 50px;
   overflow: hidden;
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
@@ -241,7 +240,7 @@ body {
   padding: 12px 25px;
   border-radius: 50px;
   background: linear-gradient(90deg, transparent, rgba(112, 255, 112, 0.2), transparent) -200% 0 / 200% 100% no-repeat;
-  color: #70ff70;
+  color: rgba(112,255,112,1);
   font-weight: 700;
   font-size: 2rem;
   outline: none;
@@ -272,7 +271,7 @@ body {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background-color: #70ff70; 
+  background-color: rgba(112,255,112,1); 
   color: #4a1c53;
   border: none;
   cursor: pointer;
@@ -303,6 +302,7 @@ body {
   gap: 20px;
   width: 100%;
   box-sizing: border-box;
+  margin-bottom: 5rem;
 }
 
 
@@ -313,6 +313,7 @@ body {
   display: flex;
   flex-direction: column;
   pointer-events: none;
+  gap: 20px;
 }
 
 .morph-box.expanded .skeleton-wrapper {
@@ -354,22 +355,23 @@ body {
 }
 
 .morph-box.is-error {
-  border-color: #ff4d4d !important;
+  border-color: #ff4d4d;
 }
 
 .is-error .concept-text,
 .is-error .reason-text {
-  color: #ff4d4d !important;
+  color: #ff4d4d;
 }
 
 .is-error .word-display {
-  color: #ff4d4d !important;
-  border-color: #ff4d4d !important;
+  color: #ff4d4d;
+  border-color: #ff4d4d;
 }
 
 .main-title.is-error {
   color: #ff4d4d;
 }
+
 
 .badge-new {
   background: rgba(112, 255, 112, 1);
@@ -395,7 +397,187 @@ body {
     padding-top: 30px;
 }
 
-/* 📱 スマホ専用（画面幅768px以下）のレイアウト調整 */
+
+.dictionary-container {
+  margin-top: 2rem;
+  padding: 0;
+  width: 100%;
+  max-width: 95vw;
+
+  animation: emotionalFadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity, filter;
+}
+
+.index-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.index-btn {
+  background: transparent;
+  border: 3px solid rgba(112, 255, 112, 1);
+  color: rgba(112, 255, 112, 1);
+  height: 50px;
+  width: 50px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1.2rem;
+  transition: background-color 0.3s, 
+              border-color 0.3s, 
+              box-shadow 0.3s, 
+              transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+.index-btn:nth-child(1) {
+  width: 80px;
+}
+
+.index-btn:hover {
+  background: transparent;
+  transform: rotate(360deg) scale(1.15) translateY(-3px);
+  border-color: rgba(112, 255, 112, 1);
+  z-index: 10;
+}
+
+.index-btn:active {
+  transform: rotate(360deg) scale(0.85) translateY(2px);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.index-btn.active {
+  background: rgba(112, 255, 112, 1);
+  color: rgba(74, 28, 83, 1);
+  border-color: rgba(112, 255, 112, 1);
+  font-weight: bold;
+  transform: scale(1.1);
+}
+
+.word-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.word-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(112, 255, 112, 0.05);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.word-card:hover {
+  background: rgba(112, 255, 112, 0.1);
+  transform: translateY(-2px);
+}
+
+.word-card:active {
+  background: rgba(112, 255, 112, 0.15);
+  transform: scale(0.95);
+}
+
+.word-itya {
+  font-size: 2rem;
+  font-weight: bold;
+  color: rgba(112, 255, 112, 1);
+}
+
+.word-ja {
+  font-size: 1rem;
+  color: rgba(112, 255, 112, 1);
+  text-align: right;
+  max-width: 60%;
+}
+
+.end-msg {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+
+@keyframes emotionalFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.scroll-top-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  width: 80px; 
+  height: 80px;
+  border-radius: 50%;
+  background-color: rgba(112, 255, 112, 1);
+  color: #4a1c53;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0);
+  transition: opacity 0.4s ease, visibility 0.4s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+.scroll-top-btn.show {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+}
+
+.scroll-top-btn svg {
+  transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  will-change: transform;
+}
+
+@keyframes iconRubberBand {
+  /* 0%〜20%: 指で下にグッと押し込んで力を「溜める」 */
+  0%   { transform: translateY(0) scale(1, 1); }
+  10%  { transform: translateY(4px) scale(1.1, 0.85); }
+  20%  { transform: translateY(6px) scale(1.15, 0.75); } /* 最大の溜め！ */
+
+  /* 20%〜40%: 指を離した瞬間、一気に上に弾け飛ぶ（パチン！） */
+  30%  { transform: translateY(-16px) scale(0.8, 1.2); } /* 細長くなって上に飛ぶ */
+  40%  { transform: translateY(-20px) scale(0.85, 1.15); } /* 頂点！ */
+
+  /* 40%〜70%: 着地して、慣性でビヨヨンと震える（余韻） */
+  50%  { transform: translateY(0) scale(1.1, 0.85); } /* 地面に激突して潰れる */
+  60%  { transform: translateY(-6px) scale(0.95, 1.05); } /* 少しだけ跳ね返る */
+  70%  { transform: translateY(0) scale(1.05, 0.95); } /* もう一度少し潰れる */
+
+  /* 70%〜100%: 元の形に戻って静止 */
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+.scroll-top-btn:hover svg {
+  animation: iconRubberBand 3s ease-in-out infinite;
+}
+
+.scroll-top-btn:active svg {
+  transform: scale(0.6);
+  animation: none; /* ジャンプを強制キャンセルして縮ませる */
+  transition: transform 0.1s ease;
+}
+
+/*スマホ*/
 @media (max-width: 768px) {
 
   .content-wrapper {
@@ -404,7 +586,7 @@ body {
   }
 
   .search-panel {
-    border: none !important;
+    border: none;
     padding: 1px;
   }
 
@@ -448,7 +630,7 @@ body {
 
   .morph-box.expanded {
     padding: 20px 15px 20px 15px; 
-    border-radius: 20px;
+    border-radius: 30px;
   }
 
   .search-button.stored {
@@ -461,6 +643,10 @@ body {
     height: 45px;
   }
 
+  .scroll-top-btn{
+    width: 45px;
+    height: 45px;
+  }
 
   .word-display {
     font-size: 3.5rem;
@@ -491,5 +677,11 @@ body {
   .trivia-box {
     height: 160px;
     margin-top: 10px;
+  }
+
+  .index-btn {
+    font-size: 1rem;
+    width: 40px;
+    height: 40px;
   }
 }

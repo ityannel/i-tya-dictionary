@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback} from 'react';
-import { Search, Loader2 } from 'lucide-react';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, X, ArrowUp } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import DictionaryList from './DictionaryList';
 
 export default function App() {
@@ -9,6 +11,50 @@ export default function App() {
   const [error, setError] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [trivia, setTrivia] = useState('');
+  const [showTopBtn, setShowTopBtn] = useState(false);
+  const clickedWordIdRef = useRef(null);
+  const [dbTrivias, setDbTrivias] = useState([]);
+  const [triviaIndex, setTriviaIndex] = useState(0);
+
+  useEffect(() => {
+      const fetchAllTrivias = async () => {
+        try {
+          const res = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setDbTrivias(data);
+          }
+        } catch (err) {
+          console.error("トリビアのキャッシュに失敗:", err);
+        }
+      };
+      fetchAllTrivias();
+    }, []);
+
+    useEffect(() => {
+      const handleScroll = () => {
+        setShowTopBtn(window.scrollY > 300);
+      };
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    useEffect(() => {
+      let timer;
+      if (isSearching && dbTrivias.length > 0) {
+        setCurrentTrivia(dbTrivias[Math.floor(Math.random() * dbTrivias.length)]);
+
+        timer = setInterval(() => {
+          const randomTrivia = dbTrivias[Math.floor(Math.random() * dbTrivias.length)];
+          setCurrentTrivia(randomTrivia);
+        }, 5000);
+      }
+      return () => clearInterval(timer);
+    }, [isSearching, dbTrivias]);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const loadingMessages = [
     "をデータベースから検索中...",
@@ -16,6 +62,7 @@ export default function App() {
     "の説明を生成中..."
   ];
 
+  // ローディング段階切り替え
   useEffect(() => {
     let interval;
     if (isSearching) {
@@ -27,46 +74,55 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isSearching]);
 
-  useEffect(() => {
-    let triviaInterval;
-    if (isSearching) {
-      triviaInterval = setInterval(async () => {
-        try {
-          const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
-          const trData = await trRes.json();
-          if(trData.trivia) setTrivia(trData.trivia);
-        } catch (err) {
-          console.log("トリビアの定期取得に失敗！");
-        }
-      }, 5000);
-    }
-    return () => clearInterval(triviaInterval);
-  }, [isSearching]);
-
+  // 検索リセット — 単語IDを使って要素位置へ戻る
   const resetSearch = () => {
+    const targetId = clickedWordIdRef.current;
+
     const doReset = () => {
-      setIsSearching(false);
       setResult(null);
+      setIsSearching(false);
       setQuery('');
       setError(false);
     };
 
-    if (document.startViewTransition) {
-      document.startViewTransition(doReset);
-    } else {
+    if (!document.startViewTransition) {
       doReset();
+      // 辞書リストが再レンダリングされるまで2フレーム待つ
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (targetId) {
+            const el = document.querySelector(`[data-word-id="${targetId}"]`);
+            if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
+          }
+        });
+      });
+      return;
     }
-  };               
 
+    const transition = document.startViewTransition(doReset);
+    transition.updateCallbackDone.then(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (targetId) {
+            const el = document.querySelector(`[data-word-id="${targetId}"]`);
+            if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
+          }
+        });
+      });
+    });
+  };
+
+  // 検索実行
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!query) return;
+    if (!query || isSearching) return;
+    clickedWordIdRef.current = null;
 
     const updateUI = () => {
       setIsSearching(true);
       setResult(null);
       setError(false);
-      setTrivia("i-tyaのトリビアを読み込み中...");
+      setTrivia("トリビアを読み込み中...");
     };
 
     if (document.startViewTransition) {
@@ -76,28 +132,20 @@ export default function App() {
     }
 
     try {
-      const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivia/random');
-      const trData = await trRes.json();
-      if(trData.trivia) setTrivia(trData.trivia);
-    } catch (err) {
-      console.log("トリビアの取得に失敗！");
-    }
-
-    try {
-      const response = await fetch('https://i-tya-dictionary.onrender.com/api/generate', {
+      const res = await fetch('https://i-tya-dictionary.onrender.com/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ concept: query }),
       });
       
-      const data = await response.json();
-      
+      const data = await res.json();
+
       if (data.status === 'invalid' || data.status === 'invailed') {
         setError(true);
         setIsSearching(false);
         return;
       }
-      
+
       let parsedRoot = "-";
       let displayWord = "???";
       let suffix = "a"; 
@@ -119,23 +167,34 @@ export default function App() {
         if (data.root) {
           parsedRoot = data.root;
           displayWord = data.root + suffix;
-        } else {
-          displayWord = "???";
         }
       }
 
-      const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
-
       const finishSearching = () => {
+        const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
+
+        const isNewWord = finalStatus === 'new' || data.is_new === true;
+        const isComplexWord = finalStatus === 'complexed' || finalStatus === 'semi_complexed' || data.combination;
+        if(finalStatus === "new"){
+          const effects = ["confetti", "stars", "fireworks"];
+          const randomEffects = effects[Math.floor(Math.random() * effects.length)];
+          triggerCelebration(randomEffects);
+        }
+        
         setResult({
-          status: finalStatus,
+          status: data.status || 'unknown',
           concept: data.meaning || query,
           root: parsedRoot,
           displayWord: displayWord,
-          reason: data.reason || "解説はまだ準備されていません！"
+          reason: data.reason || "解説はまだ準備されていません！",
+          isNew: isNewWord,
+          isComplex: !isComplexWord
         });
         setIsSearching(false);
       };
+
+      setTrivia(data.trivia || "この概念に関するトリビアはまだないぜ。");
+      setIsSearching(false);
 
       if (document.startViewTransition) {
         document.startViewTransition(finishSearching);
@@ -145,39 +204,66 @@ export default function App() {
 
     } catch (err) {
       console.error("通信エラー！", err);
-      const showError = () => {
-        setError(true);
-        setIsSearching(false);
-      };
-      if (document.startViewTransition) {
-        document.startViewTransition(showError);
-      } else {
-        showError();
-      }
+      setError(true);
+      setIsSearching(false);
     }
   };
 
-  const renderDisplayWord = () => {
-    if (!result) return null;
-    
-    if (result.displayWord.includes(' ')) {
-      const words = result.displayWord.split(' ');
-      return (
-        <h2 className="word-display">
-          {words.map((word, index) => (
-            <React.Fragment key={index}>
-              {word}{index !== words.length - 1 && ' '}
-            </React.Fragment>
-          ))}
-        </h2>
-      );
-    }
+  const handleDictionaryClick = (wordData) => {
+    clickedWordIdRef.current = wordData.id; // IDを保存（スクロール位置ではなく）
+    window.scrollTo({ top: 0, behavior: 'instant' });
 
-    return (
-      <h2 className="word-display">
-        {result.displayWord}
-      </h2>
-    );
+    const showDetail = () => {
+      let parsedRoot = wordData.fullData?.root || "-";
+      if (wordData.type === 'complex') parsedRoot = "複合概念";
+
+      setResult({
+        status: wordData.type === 'complex' ? 'complexed' : 'existing',
+        concept: wordData.meaning,
+        root: parsedRoot,
+        displayWord: wordData.word,
+        reason: wordData.fullData?.reason || "解説はまだ準備されていません！"
+      });
+      setIsSearching(false);
+      setError(false);
+    };
+
+    if (document.startViewTransition) {
+      document.startViewTransition(showDetail);
+    } else {
+      showDetail();
+    }
+  };
+  const triggerCelebration = (type) => {
+    const duration = 3 * 1000;
+    const end = Date.now() + duration;
+
+    if (type === 'confetti') {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#70ff70', '#ffffff', '#4a1c53']
+      });
+    } else if (type === 'stars') {
+      const defaults = { spread: 360, ticks: 50, gravity: 0, decay: 0.94, startVelocity: 30, colors: ['FFE400', 'FFBD00', 'E89400', 'FFCA6C', 'FDFFB8'] };
+      const shoot = () => {
+        confetti({ ...defaults, particleCount: 40, scalar: 1.2, shapes: ['star'] });
+        confetti({ ...defaults, particleCount: 10, scalar: 0.75, shapes: ['circle'] });
+      };
+      setTimeout(shoot, 0);
+      setTimeout(shoot, 100);
+      setTimeout(shoot, 200);
+    } else if (type === 'fireworks') {
+      // 3. 打ち上げ花火
+      (function frame() {
+        confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#70ff70'] });
+        confetti({ particleCount: 2, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ffffff'] });
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      }());
+    }
   };
 
   const isExpanded = isSearching || result || error;
@@ -197,7 +283,7 @@ export default function App() {
               className={`morph-input ${isExpanded ? 'hidden' : ''}`}
               placeholder="日本語で検索..."
               value={query}
-              onChange={(e)=>setQuery(e.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               disabled={isExpanded}
             />
 
@@ -206,41 +292,33 @@ export default function App() {
                 <p className="searching-text">
                   <span>{query}</span> {loadingMessages[loadingStep]}
                 </p>
-
-                <div className="trivia-box">
-                  <p key={trivia} className="trivia-text">{trivia}</p>
-                </div>
-
-                <div className="skeleton-container">
-                  <div className="skeleton-line concept-skel"></div>
-                  <div className="skeleton-box word-skel"></div>
-                  <div className="skeleton-line"></div>
-                  <div className="skeleton-line"></div>
-                  <div className="skeleton-line mid"></div>
-                  <div className="skeleton-line"></div>
-                  <div className="skeleton-line"></div>
-                  <div className="skeleton-line mid"></div>
-                </div>
+                {trivia && (
+                  <div className="trivia-box">
+                    <span className="trivia-text">{currentTrivia}</span>
+                  </div>
+                )}
+                <div className="skeleton-line concept-skel"></div>
+                <div className="skeleton-box word-skel"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line mid"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line mid"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-line mid"></div>
               </div>
             )}
 
             {result && !isSearching && !error && (
               <div className="inner-result fade-in-up">
-                
-                <p className="concept-text">
+                <div className="concept-text">
                   {result.concept}
-                  {result.status === 'new' && (
-                    <span className="badge badge-new">新規</span>
-                  )}
-                  {(result.status === 'complexed' || result.status === 'semi_complexed') && (
-                    <span className="badge badge-compound">複合概念</span>
-                  )}
-                </p>
-
-                {renderDisplayWord()}
-                <div className="reason-text">
-                  {result.reason}
+                  {result.status === 'new' && <span className="badge-new">新規</span>}
+                  {result.status === 'complexed' && <span className="badge-compound">複合概念</span>}
                 </div>
+                <h2 className="word-display">{result.displayWord}</h2>
+                <div className="reason-text">{result.reason}</div>
               </div>
             )}
 
@@ -248,27 +326,34 @@ export default function App() {
               <div className="inner-result fade-in-up">
                 <p className="concept-text">エラー！</p>
                 <h2 className="word-display">Error</h2>
-                <div className="reason-text">
-                  データベースとの接続に失敗しました！
-                </div>
+                <div className="reason-text">データベースとの接続に失敗しました！</div>
               </div>
             )}
           </div>
 
           <button 
-            onClick={isExpanded ? resetSearch : handleSearch}
-            type={!isExpanded ? "submit" : "button"}
+            onClick={isExpanded ? resetSearch : undefined}
+            type={isExpanded ? "button" : "submit"}
             className={`search-button ${isExpanded ? 'stored' : ''}`}
           >
-            <Search size={28} strokeWidth={3.5} />
+            {isExpanded ? <X size={28} strokeWidth={3.5} /> : <Search size={28} strokeWidth={3.5} />}
           </button>
         </form>
 
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">
-            <DictionaryList />
+            <DictionaryList onWordClick={handleDictionaryClick} />
           </div>
         )}
+
+        {/* 戻るボタン */}
+        <button 
+          className={`scroll-top-btn ${showTopBtn ? 'show' : ''}`}
+          onClick={scrollToTop}
+          aria-label="トップへ戻る"
+        >
+          <ArrowUp size={28} strokeWidth={3.5} />
+        </button>
       </div>
     </div>
   );

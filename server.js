@@ -439,20 +439,18 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-app.get('/api/trivia/random', async (req, res) => {
+app.get('/api/trivias', async (req, res) => {
   try {
     const snapshot = await db.collection('itya_trivia').get();
+
     if (snapshot.empty) {
-      return res.json({ trivia: "i-tyaは、日常生活における迅速な意思疎通を最優先に設計された言語です。" });
-    }
+      return res.json(["i-tyaは、日常生活における迅速な意思疎通を最優先に設計された言語です。"]);
+    const triviasArray = snapshot.docs.map(doc => doc.data().content);
+    res.json(triviasArray);
     
-    const docs = snapshot.docs;
-    const randomDoc = docs[Math.floor(Math.random() * docs.length)];
-    
-    res.json({ trivia: randomDoc.data().content });
   } catch (error) {
     console.error("トリビア取得エラー:", error);
-    res.status(500).json({ error: "Failed to fetch trivia" });
+    res.status(500).json({ error: "Failed to fetch trivias" });
   }
 });
 
@@ -503,11 +501,33 @@ function sortItyaWords(a, b) {
   return wordA.length - wordB.length;
 }
 
+let cacheDictionary = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000;
+
 app.get('/api/dictionary', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
     const letter = (req.query.letter || req.query.search || "").toLowerCase();
+
+    if (cacheDictionary && (Date.now() - lastFetchTime) < CACHE_DURATION) {
+      let allEntries = cacheDictionary;
+
+      if (letter && letter !== 'all') {
+        allEntries = allEntries.filter(e => e.word.toLowerCase().startsWith(letter));
+      }
+
+      allEntries.sort(sortItyaWords);
+
+      const startIndex = (page - 1) * limit;
+      const paginatedWords = allEntries.slice(startIndex, startIndex + limit);
+
+      return res.json({
+        words: paginatedWords,
+        hasMore: startIndex + limit < allEntries.length
+      });
+    }
 
     const [wordsSnap, complexSnap] = await Promise.all([
       db.collection('itya_words').get(),
