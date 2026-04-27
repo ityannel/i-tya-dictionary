@@ -1,21 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wdth,wght@120,600&family=LINE+Seed+JP:wght@100;400;700;800&display=swap');
 
 * {
-    -webkit-tap-highlight-color: transparent;
-  }
+  -webkit-tap-highlight-color: transparent;
+}
 
 body {
   margin: 0;
   padding: 0;
-  background-color: rgba(74, 28, 83, 1); /* いちゃパープル */
-  color: rgba(112, 255, 112, 1);          /* いちゃグリーン */
+  background-color: rgba(74, 28, 83, 1);
+  /* いちゃパープル */
+  color: rgba(112, 255, 112, 1);
+  /* いちゃグリーン */
   font-family: 'Fredoka', 'LINE Seed JP', sans-serif;
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
-  align-items: flex-start; 
+  align-items: flex-start;
   padding-top: 10vh;
 }
 
@@ -27,7 +29,7 @@ body {
 
 .skeleton-box.word-skel {
   width: 60%;
-  height: clamp(50px, 10vw, 90px); 
+  height: clamp(50px, 10vw, 90px);
   border-radius: 16px;
   margin: 15px 0 25px 0;
 }
@@ -39,10 +41,10 @@ body {
   border-radius: 0 12px 12px 0;
   margin-bottom: 25px;
   text-align: left;
-  height: 80px; 
+  height: 80px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(112,255,112,1) transparent;
+  scrollbar-color: rgba(112, 255, 112, 1) transparent;
 
   display: flex;
   flex-direction: column;
@@ -58,11 +60,12 @@ body {
   animation: triviaFadeIn 0.3s ease-out forwards;
 }
 
-@keyframes triviaFadeIn{
+@keyframes triviaFadeIn {
   from {
     opacity: 0;
     transform: translateY(15px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -93,8 +96,8 @@ body {
   margin-bottom: -0.1em;
 }
 
-.content-wrapper{
-  display:flex;
+.content-wrapper {
+  display: flex;
   flex-direction: column;
   align-items: stretch;
   width: max-content;
@@ -113,7 +116,7 @@ body {
 
 .search-panel {
   width: 100%;
-  border: 3px solid rgba(112,255,112,1);
+  border: 3px solid rgba(112, 255, 112, 1);
   border-radius: 32px;
   padding: 30px;
   background-color: transparent;
@@ -130,7 +133,7 @@ body {
 }
 
 .searching-text span {
-  color: rgba(112,255,112,1);
+  color: rgba(112, 255, 112, 1);
   font-size: 1.5rem;
 }
 
@@ -152,25 +155,49 @@ body {
   border-radius: 8px;
 }
 
-.skeleton-line { height: 20px; width: 100%; }
-.skeleton-line.mid { width: 80%; }
-.skeleton-line.long { width: 90%; }
-.skeleton-box.short { height: 40px; width: 50%; margin-bottom: 10px; }
-.skeleton-box.tall { height: 120px; width: 100%; margin-top: 10px; }
+.skeleton-line {
+  height: 20px;
+  width: 100%;
+}
+
+.skeleton-line.mid {
+  width: 80%;
+}
+
+.skeleton-line.long {
+  width: 90%;
+}
+
+.skeleton-box.short {
+  height: 40px;
+  width: 50%;
+  margin-bottom: 10px;
+}
+
+.skeleton-box.tall {
+  height: 120px;
+  width: 100%;
+  margin-top: 10px;
+}
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .morph-box {
   flex: 1 1 0;
   min-width: 0;
-  width: 0; 
+  width: 0;
   max-width: 100%;
   flex-grow: 1;
   background: transparent;
-  border: 4px solid rgba(112,255,112,1);
+  border: 4px solid rgba(112, 255, 112, 1);
   border-radius: 50px;
   overflow: hidden;
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
@@ -188,6 +215,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -207,7 +235,7 @@ body {
   padding: 0;
   margin: 0;
   border: none;
-  margin-top: -80px; 
+  margin-top: -80px;
   pointer-events: none;
   flex-grow: 0;
   overflow: hidden;
@@ -219,6 +247,8 @@ body {
   text-align: left;
   display: flex;
   flex-direction: column;
+  position: relative;
+  padding-bottom: 60px;
 }
 
 .morph-input.hidden {
@@ -240,7 +270,7 @@ body {
   padding: 12px 25px;
   border-radius: 50px;
   background: linear-gradient(90deg, transparent, rgba(112, 255, 112, 0.2), transparent) -200% 0 / 200% 100% no-repeat;
-  color: rgba(112,255,112,1);
+  color: rgba(112, 255, 112, 1);
   font-weight: 700;
   font-size: 2rem;
   outline: none;
@@ -271,7 +301,7 @@ body {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background-color: rgba(112,255,112,1); 
+  background-color: rgba(112, 255, 112, 1);
   color: #4a1c53;
   border: none;
   cursor: pointer;
@@ -287,17 +317,20 @@ body {
   transform: rotate(360deg) scale(1.1);
 }
 
-.morph-input::placeholder { color: rgba(112, 255, 112, 0.5); font-weight: 700; }
+.morph-input::placeholder {
+  color: rgba(112, 255, 112, 0.5);
+  font-weight: 700;
+}
 
 .morph-box.expanded .morph-input {
   opacity: 0;
-  margin-top: -80px; 
+  margin-top: -80px;
   pointer-events: none;
 }
 
 .search-form {
   display: flex;
-  align-items: flex-start; 
+  align-items: flex-start;
   justify-content: center;
   gap: 20px;
   width: 100%;
@@ -343,6 +376,7 @@ body {
   margin: 0;
   font-weight: 600;
 }
+
 .reason-text {
   color: rgba(202, 255, 202, 1);
   text-align: left;
@@ -376,8 +410,8 @@ body {
 .badge-new {
   background: rgba(112, 255, 112, 1);
   color: rgba(74, 28, 83, 1);
-  border-radius: 999px; 
-  
+  border-radius: 999px;
+
   padding: 2px 10px;
   font-size: 1.2rem;
   font-weight: 700;
@@ -385,8 +419,10 @@ body {
 
 .badge-compound {
   background: transparent;
-  border: 1.5px solid rgba(112, 255, 112, 1); ;
-  color: rgba(112, 255, 112, 1); ;
+  border: 1.5px solid rgba(112, 255, 112, 1);
+  ;
+  color: rgba(112, 255, 112, 1);
+  ;
   border-radius: 999px;
   padding: 2px 10px;
   font-size: 1.2rem;
@@ -394,7 +430,7 @@ body {
 }
 
 .reason-text {
-    padding-top: 30px;
+  padding-top: 30px;
 }
 
 
@@ -426,13 +462,13 @@ body {
   cursor: pointer;
   font-family: inherit;
   font-size: 1.2rem;
-  transition: background-color 0.3s, 
-              border-color 0.3s, 
-              box-shadow 0.3s, 
-              transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  transition: background-color 0.3s,
+    border-color 0.3s,
+    box-shadow 0.3s,
+    transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
 }
 
-.index-btn:nth-child(1) {
+.index-nav .index-btn:nth-child(1) {
   width: 80px;
 }
 
@@ -509,6 +545,7 @@ body {
     transform: translateY(15px);
     filter: blur(4px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -520,7 +557,7 @@ body {
   position: fixed;
   bottom: 24px;
   left: 24px;
-  width: 80px; 
+  width: 80px;
   height: 80px;
   border-radius: 50%;
   background-color: rgba(112, 255, 112, 1);
@@ -549,22 +586,55 @@ body {
 }
 
 @keyframes iconRubberBand {
+
   /* 0%〜20%: 指で下にグッと押し込んで力を「溜める」 */
-  0%   { transform: translateY(0) scale(1, 1); }
-  10%  { transform: translateY(4px) scale(1.1, 0.85); }
-  20%  { transform: translateY(6px) scale(1.15, 0.75); } /* 最大の溜め！ */
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+
+  10% {
+    transform: translateY(4px) scale(1.1, 0.85);
+  }
+
+  20% {
+    transform: translateY(6px) scale(1.15, 0.75);
+  }
+
+  /* 最大の溜め！ */
 
   /* 20%〜40%: 指を離した瞬間、一気に上に弾け飛ぶ（パチン！） */
-  30%  { transform: translateY(-16px) scale(0.8, 1.2); } /* 細長くなって上に飛ぶ */
-  40%  { transform: translateY(-20px) scale(0.85, 1.15); } /* 頂点！ */
+  30% {
+    transform: translateY(-16px) scale(0.8, 1.2);
+  }
+
+  /* 細長くなって上に飛ぶ */
+  40% {
+    transform: translateY(-20px) scale(0.85, 1.15);
+  }
+
+  /* 頂点！ */
 
   /* 40%〜70%: 着地して、慣性でビヨヨンと震える（余韻） */
-  50%  { transform: translateY(0) scale(1.1, 0.85); } /* 地面に激突して潰れる */
-  60%  { transform: translateY(-6px) scale(0.95, 1.05); } /* 少しだけ跳ね返る */
-  70%  { transform: translateY(0) scale(1.05, 0.95); } /* もう一度少し潰れる */
+  50% {
+    transform: translateY(0) scale(1.1, 0.85);
+  }
+
+  /* 地面に激突して潰れる */
+  60% {
+    transform: translateY(-6px) scale(0.95, 1.05);
+  }
+
+  /* 少しだけ跳ね返る */
+  70% {
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+
+  /* もう一度少し潰れる */
 
   /* 70%〜100%: 元の形に戻って静止 */
-  100% { transform: translateY(0) scale(1, 1); }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
 }
 
 .scroll-top-btn:hover svg {
@@ -573,8 +643,78 @@ body {
 
 .scroll-top-btn:active svg {
   transform: scale(0.6);
-  animation: none; /* ジャンプを強制キャンセルして縮ませる */
+  animation: none;
+  /* ジャンプを強制キャンセルして縮ませる */
   transition: transform 0.1s ease;
+}
+
+.total-count {
+  text-align: center;
+  font-size: 1.2rem;
+  color: rgba(112, 255, 112, 0.7);
+  margin-bottom: 1rem;
+}
+
+.share-buttons {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  gap: 10px;
+}
+
+.share-btn {
+  background: transparent;
+  border: 1.5px solid rgba(112, 255, 112, 1);
+  border-radius: 999px;
+  color: rgba(112, 255, 112, 1);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.concept-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.share-btn:hover {
+  background: rgba(112, 255, 112, 0.1);
+}
+
+.x-btn {
+  border-color: rgba(112, 255, 112, 0.6);
+}
+.pos-select {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1.5px solid rgba(112, 255, 112, 0.4);
+  border-radius: 999px;
+  color: rgba(112, 255, 112, 0.6);
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.pos-select option {
+  background: rgba(74, 28, 83, 1);
+  color: rgba(112, 255, 112, 1);
+}
+
+.reason-text {
+  min-height: 200px;
 }
 
 /*スマホ*/
@@ -600,8 +740,8 @@ body {
     position: absolute;
     top: 0;
     bottom: 0;
-    margin: auto 0; 
-    
+    margin: auto 0;
+
     right: 10px;
     width: 45px;
     height: 45px;
@@ -619,7 +759,7 @@ body {
     font-size: 1.2rem;
     padding-left: 20px;
     padding-right: 60px;
-    border: none; 
+    border: none;
     outline: none;
     background: transparent;
     box-shadow: none;
@@ -629,7 +769,7 @@ body {
   }
 
   .morph-box.expanded {
-    padding: 20px 15px 20px 15px; 
+    padding: 20px 15px 20px 15px;
     border-radius: 30px;
   }
 
@@ -643,7 +783,7 @@ body {
     height: 45px;
   }
 
-  .scroll-top-btn{
+  .scroll-top-btn {
     width: 45px;
     height: 45px;
   }
@@ -660,7 +800,7 @@ body {
 
   .search-button,
   .morph-input {
-    touch-action: manipulation; 
+    touch-action: manipulation;
   }
 
   .searching-text,
@@ -686,12 +826,19 @@ body {
   }
 
   .dictionary-container {
-  margin-top: 0;
-}
-.trivia-text {
-  font-size: 0.9rem;
-}
-.search-form {
-  margin-bottom: 1rem; /* 元の5remから縮める */
-}
+    margin-top: 0;
+  }
+
+  .trivia-text {
+    font-size: 0.9rem;
+  }
+
+  .search-form {
+    margin-bottom: 1rem;
+  }
+
+  .pos-tab {
+    padding: 6px 14px;
+    font-size: 0.9rem;
+  }
 }

@@ -1,7 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp } from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check} from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
 import DictionaryList from './DictionaryList';
 
 export default function App() {
@@ -13,6 +15,12 @@ export default function App() {
   const [trivia, setTrivia] = useState('');
   const [showTopBtn, setShowTopBtn] = useState(false);
   const clickedWordIdRef = useRef(null);
+  const [total, setTotal] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [activePos, setActivePos] = useState('noun');
+
+  const hasSearchedFromUrl = useRef(false);
+
 
   useEffect(() => {
     let triviaInterval;
@@ -33,14 +41,13 @@ export default function App() {
     return () => clearInterval(triviaInterval);
   }, [isSearching]);
 
-    useEffect(() => {
-      const handleScroll = () => {
-        setShowTopBtn(window.scrollY > 300);
-      };
-      window.addEventListener('scroll', handleScroll);
-      return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowTopBtn(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -100,43 +107,30 @@ export default function App() {
     });
   };
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!query || isSearching) return;
-    clickedWordIdRef.current = null;
+  const executeSearch = async (searchQuery) => {
+    setIsSearching(true);
+    setResult(null);
+    setError(false);
+    setTrivia("トリビアを読み込み中...");
 
-    const updateUI = async () => {
-      setIsSearching(true);
-      setResult(null);
-      setError(false);
-      setTrivia("トリビアを読み込み中...");
-
-      try {
-        const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
-        const trData = await trRes.json();
-        if (Array.isArray(trData) && trData.length > 0) {
-          const random = trData[Math.floor(Math.random() * trData.length)];
-          setTrivia(random);
-        }
-      } catch (err) {
-        console.log("初回トリビアの取得に失敗しました。");
+    try {
+      const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
+      const trData = await trRes.json();
+      if (Array.isArray(trData) && trData.length > 0) {
+        const random = trData[Math.floor(Math.random() * trData.length)];
+        setTrivia(random);
       }
-
-    };
-
-    if (document.startViewTransition) {
-      document.startViewTransition(updateUI);
-    } else {
-      updateUI();
+    } catch (err) {
+      console.log("初回トリビアの取得に失敗しました。");
     }
 
     try {
       const res = await fetch('https://i-tya-dictionary.onrender.com/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ concept: query }),
+        body: JSON.stringify({ concept: searchQuery }),
       });
-      
+
       const data = await res.json();
 
       if (data.status === 'invalid' || data.status === 'invailed') {
@@ -147,9 +141,9 @@ export default function App() {
 
       let parsedRoot = "-";
       let displayWord = "???";
-      let suffix = "a"; 
+      let suffix = "a";
       let posKey = "noun";
-      
+
       if (data.part_of_speech === "verb") {
         suffix = "i"; posKey = "verb";
       } else if (data.part_of_speech === "extender") {
@@ -171,29 +165,36 @@ export default function App() {
 
       const finishSearching = () => {
         const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
-
         const isNewWord = finalStatus === 'new' || data.is_new === true;
         const isComplexWord = finalStatus === 'complexed' || finalStatus === 'semi_complexed' || data.combination;
-        if(finalStatus === "new"){
+
+        if (finalStatus === "new") {
           const effects = ["confetti", "stars", "fireworks"];
           const randomEffects = effects[Math.floor(Math.random() * effects.length)];
           triggerCelebration(randomEffects);
         }
-        
+
         setResult({
           status: data.status || 'unknown',
-          concept: data.meaning || query,
+          concept: data.meaning || data.meaning_noun|| searchQuery,
           root: parsedRoot,
           displayWord: displayWord,
           reason: data.reason || "解説はまだ準備されていません！",
+          reason_noun: data.reason_noun,
+          reason_verb: data.reason_verb,
+          reason_extender: data.reason_extender,
+          meaning_noun: data.meaning_noun,
+          meaning_verb: data.meaning_verb,
+          meaning_extender: data.meaning_extender,
+          wordData: data.data,
           isNew: isNewWord,
           isComplex: !isComplexWord
         });
+        setActivePos(posKey || 'noun');
         setIsSearching(false);
       };
 
       setTrivia(data.trivia || "この概念に関するトリビアはまだないぜ。");
-      setIsSearching(false);
 
       try {
         if (document.startViewTransition) {
@@ -212,6 +213,28 @@ export default function App() {
     }
   };
 
+  // handleSearchはこれだけになる
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!query || isSearching) return;
+    clickedWordIdRef.current = null;
+    if (document.startViewTransition) {
+      document.startViewTransition(() => executeSearch(query));
+    } else {
+      executeSearch(query);
+    }
+  };
+
+  // URLパラメータから自動検索
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (q) {
+      setQuery(q);
+      executeSearch(q);
+    }
+  }, []);
+
   const handleDictionaryClick = (wordData) => {
     clickedWordIdRef.current = wordData.id; // IDを保存（スクロール位置ではなく）
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -226,7 +249,18 @@ export default function App() {
         concept: wordData.meaning,
         root: parsedRoot,
         displayWord: wordData.word,
-        reason: wordData.fullData?.reason || "解説はまだ準備されていません！"
+        reason: wordData.fullData?.reason || "解説はまだ準備されていません！",
+        reason_noun: wordData.fullData?.reason_noun,
+        reason_verb: wordData.fullData?.reason_verb,
+        reason_extender: wordData.fullData?.reason_extender,
+        meaning_noun: wordData.fullData?.meaning_noun,
+        meaning_verb: wordData.fullData?.meaning_verb,
+        meaning_extender: wordData.fullData?.meaning_extender,
+        wordData: wordData.type !== 'complex' ? {
+          noun: wordData.fullData?.word_noun,
+          verb: wordData.fullData?.word_verb,
+          extender: wordData.fullData?.word_extender
+        } : null,
       });
       setIsSearching(false);
       setError(false);
@@ -238,6 +272,7 @@ export default function App() {
       showDetail();
     }
   };
+
   const triggerCelebration = (type) => {
     const duration = 3 * 1000;
     const end = Date.now() + duration;
@@ -280,9 +315,9 @@ export default function App() {
 
         <form id="search-form" onSubmit={handleSearch} className="search-form">
           <div className={`morph-box ${isExpanded ? 'expanded' : ''} ${error ? 'is-error' : ''}`}>
-            
-            <input 
-              type="text" 
+
+            <input
+              type="text"
               className={`morph-input ${isExpanded ? 'hidden' : ''}`}
               placeholder="日本語で検索..."
               value={query}
@@ -315,13 +350,65 @@ export default function App() {
 
             {result && !isSearching && !error && (
               <div className="inner-result fade-in-up">
-                <div className="concept-text">
-                  {result.concept}
-                  {result.status === 'new' && <span className="badge-new">新規</span>}
-                  {result.status === 'complexed' && <span className="badge-compound">複合概念</span>}
+                <div className="concept-header">
+                  <div className="concept-text">
+                    {result.wordData && result.meaning_noun
+                      ? (activePos === 'noun' ? result.meaning_noun
+                        : activePos === 'verb' ? result.meaning_verb
+                        : result.meaning_extender)
+                      : result.concept}
+                    {result.status === 'new' && <span className="badge-new">新規</span>}
+                    {result.status === 'complexed' && <span className="badge-compound">複合概念</span>}
+                  </div>
+
+                  {result.status !== 'complexed' && result.wordData && (
+                    <select
+                      className="pos-select"
+                      value={activePos}
+                      onChange={(e) => setActivePos(e.target.value)}
+                    >
+                      <option value="noun">名詞</option>
+                      <option value="verb">動詞</option>
+                      <option value="extender">拡張詞</option>
+                    </select>
+                  )}
                 </div>
-                <h2 className="word-display">{result.displayWord}</h2>
-                <div className="reason-text">{result.reason}</div>
+
+                <h2 className="word-display">
+                  {result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
+                </h2>
+                
+                <div className="reason-text">
+                  {result.status === 'complexed' || !result.wordData
+                    ? result.reason
+                    : (activePos === 'noun' ? (result.reason_noun || result.reason)
+                       : activePos === 'verb' ? (result.reason_verb || result.reason)
+                       : (result.reason_extender || result.reason))
+                  }
+                </div>
+
+                {/* 共有ボタン群 */}
+                <div className="share-buttons">
+                  <button className="index-btn" onClick={() => {
+                    const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
+                    navigator.clipboard.writeText(url);
+                    window.history.pushState({}, '', `?q=${encodeURIComponent(result.concept)}`);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}>
+                    {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
+                  </button>
+                  <button className="index-btn" onClick={() => {
+                    const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
+                    const isNew = result.status === 'new';
+                    const text = isNew
+                      ? `「${result.concept}」をi-tyaに登録しました！\n「${result.displayWord}」\n\n#i_tya #NT函館`
+                      : `「${result.concept}」をi-tyaで調べました！\n「${result.displayWord}」\n\n#i_tya #NT函館`;
+                    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                  }}>
+                    <FontAwesomeIcon icon={faXTwitter} />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -334,7 +421,7 @@ export default function App() {
             )}
           </div>
 
-          <button 
+          <button
             onClick={isExpanded ? resetSearch : undefined}
             type={isExpanded ? "button" : "submit"}
             className={`search-button ${isExpanded ? 'stored' : ''}`}
@@ -345,12 +432,13 @@ export default function App() {
 
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">
+            <p className="total-count">{total}語収録中</p>
             <DictionaryList onWordClick={handleDictionaryClick} />
           </div>
         )}
 
         {/* 戻るボタン */}
-        <button 
+        <button
           className={`scroll-top-btn ${showTopBtn ? 'show' : ''}`}
           onClick={scrollToTop}
           aria-label="トップへ戻る"
