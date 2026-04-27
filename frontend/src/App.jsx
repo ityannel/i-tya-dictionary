@@ -18,6 +18,13 @@ export default function App() {
   const [total, setTotal] = useState(0);
   const [copied, setCopied] = useState(false);
   const [activePos, setActivePos] = useState('noun');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPass, setAdminPass] = useState('');
+  const clickCountRef = useRef(0);
+  const clickTimerRef = useRef(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editConcept, setEditConcept] = useState('');
+  const [editReason, setEditReason] = useState('');
 
   const hasSearchedFromUrl = useRef(false);
 
@@ -80,7 +87,55 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isSearching]);
 
-  // 検索リセット — 単語IDを使って要素位置へ戻る
+  const handleTitleClick = () => {
+    clickCountRef.current += 1;
+
+    if (clickCountRef.current === 5) {
+      const pass = prompt("管理者パスワードを入力してください：");
+      if (pass === "itya_admin_2026") {
+        setIsAdmin(true);
+        alert("管理者権限を承認しました！");
+      } else {
+        alert("誰だお前は！");
+      }
+      clickCountRef.current = 0;
+    }
+
+    clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      clickCountRef.current = 0;
+    }, 1000);
+  };
+
+  const saveEdit = async () => {
+    if (!result.id) {
+      alert("ドキュメントIDがねえから更新できません！");
+      return;
+    }
+    
+    try {
+      const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${result.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: "itya_admin_2026",
+          meaning: editConcept,
+          reason: editReason
+        })
+      });
+      
+      if (res.ok) {
+        alert("編集完了");
+        setResult({ ...result, concept: editConcept, reason: editReason });
+        setIsEditing(false);
+      } else {
+        alert("更新エラー！サーバーを確認してください！");
+      }
+    } catch (err) {
+      console.error("編集通信エラー", err);
+    }
+  };
+
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
 
@@ -93,7 +148,6 @@ export default function App() {
 
     if (!document.startViewTransition) {
       doReset();
-      // 辞書リストが再レンダリングされるまで2フレーム待つ
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (targetId) {
@@ -307,7 +361,7 @@ export default function App() {
   return (
     <div className="app-container">
       <div className={`content-wrapper ${isExpanded ? 'moved-up' : ''}`}>
-        <h1 className={`main-title ${isExpanded ? 'squashed' : ''} ${error ? 'is-error' : ''}`}>
+        <h1 onClick={handleTitleClick} className={`main-title ${isExpanded ? 'squashed' : ''} ${error ? 'is-error' : ''}`}>
           Swa i-tya!
         </h1>
 
@@ -346,77 +400,134 @@ export default function App() {
               </div>
             )}
 
-            {result && !isSearching && !error && (
-              <div className="inner-result fade-in-up">
-                <div className="concept-header">
-                  <div className="concept-text">
-                    {result.wordData && result.meaning_noun
-                      ? (activePos === 'noun' ? result.meaning_noun
-                        : activePos === 'verb' ? result.meaning_verb
-                        : result.meaning_extender)
-                      : result.concept}
-                    {result.status === 'new' && <span className="badge-new">新規</span>}
-                    {(result.status === 'complexed' || result.status === 'semi_complexed') && <span className="badge-compound">複合概念</span>}
+            {isEditing ? (
+                  <div className="admin-edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
+                    <div style={{color: '#ff4d4d', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center'}}>🔧 管理者データベース編集モード</div>
+                    <input
+                      value={editConcept}
+                      onChange={(e) => setEditConcept(e.target.value)}
+                      style={{ fontSize: '1.2rem', padding: '12px', borderRadius: '8px', border: '2px solid #ff4d4d', background: 'rgba(0,0,0,0.2)', color: 'white' }}
+                      placeholder="意味・概念を編集"
+                    />
+                    <textarea
+                      value={editReason}
+                      onChange={(e) => setEditReason(e.target.value)}
+                      style={{ fontSize: '1rem', padding: '12px', height: '150px', borderRadius: '8px', border: '2px solid #ff4d4d', background: 'rgba(0,0,0,0.2)', color: 'white', resize: 'vertical' }}
+                      placeholder="解説を編集"
+                    />
+                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
+                      <button type="button" onClick={saveEdit} style={{ background: '#ff4d4d', color: 'white', padding: '12px 24px', borderRadius: '30px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>
+                        上書き保存
+                      </button>
+                      <button type="button" onClick={() => setIsEditing(false)} style={{ background: 'transparent', color: '#ff4d4d', padding: '12px 24px', borderRadius: '30px', border: '2px solid #ff4d4d', cursor: 'pointer', fontWeight: 'bold' }}>
+                        キャンセル
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  /* 🚨 編集してない時はお前の完璧なUIをそのまま表示する！ */
+                  <>
+                    <div className="concept-header">
+                      <div className="concept-text">
+                        {result.wordData && result.meaning_noun
+                          ? (activePos === 'noun' ? result.meaning_noun
+                            : activePos === 'verb' ? result.meaning_verb
+                            : result.meaning_extender)
+                          : result.concept}
+                        {result.status === 'new' && <span className="badge-new">新規</span>}
+                        {(result.status === 'complexed' || result.status === 'semi_complexed') && <span className="badge-compound">複合概念</span>}
+                      </div>
 
-                  {result.status !== 'complexed' && result.wordData && (
-                    <select
-                      className="pos-select"
-                      value={activePos}
-                      onChange={(e) => {
-                        const el = document.querySelector('.word-display');
-                        const el2 = document.querySelector('.reason-text');
-                        [el, el2].forEach(el => {
-                          if (el) {
-                            el.style.animation = 'none';
-                            el.offsetHeight; // reflow
-                            el.style.animation = '';
-                          }
-                        });
-                        setActivePos(e.target.value);
-                      }}
-                    >
-                      <option value="noun">名詞</option>
-                      <option value="verb">動詞</option>
-                      <option value="extender">拡張詞</option>
-                    </select>
-                  )}
-                </div>
+                      {result.status !== 'complexed' && result.wordData && (
+                        <select
+                          className="pos-select"
+                          value={activePos}
+                          onChange={(e) => {
+                            const el = document.querySelector('.word-display');
+                            const el2 = document.querySelector('.reason-text');
+                            [el, el2].forEach(el => {
+                              if (el) {
+                                el.style.animation = 'none';
+                                el.offsetHeight; // reflow
+                                el.style.animation = '';
+                              }
+                            });
+                            setActivePos(e.target.value);
+                          }}
+                        >
+                          <option value="noun">名詞</option>
+                          <option value="verb">動詞</option>
+                          <option value="extender">拡張詞</option>
+                        </select>
+                      )}
+                    </div>
 
-                <h2 className="word-display">
-                  {result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
-                </h2>
-                
-                <div className="reason-text">
-                  {result.status === 'complexed' || !result.wordData
-                    ? result.reason
-                    : (activePos === 'noun' ? (result.reason_noun || result.reason)
-                       : activePos === 'verb' ? (result.reason_verb || result.reason)
-                       : (result.reason_extender || result.reason))
-                  }
-                </div>
+                    <h2 className="word-display">
+                      {result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
+                    </h2>
+                    
+                    <div className="reason-text">
+                      {result.status === 'complexed' || !result.wordData
+                        ? result.reason
+                        : (activePos === 'noun' ? (result.reason_noun || result.reason)
+                           : activePos === 'verb' ? (result.reason_verb || result.reason)
+                           : (result.reason_extender || result.reason))
+                      }
+                    </div>
 
-                <div className="share-buttons">
-                  <button className="index-btn" onClick={() => {
-                    const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
-                    navigator.clipboard.writeText(url);
-                    window.history.pushState({}, '', `?q=${encodeURIComponent(result.concept)}`);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}>
-                    {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
-                  </button>
-                  <button className="index-btn" onClick={() => {
-                    const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
-                    const isNew = result.status === 'new';
-                    const text = isNew
-                      ? `「${result.concept}」をi-tyaに登録しました！\n「${result.displayWord}」\n\n#i_tya #NT函館`
-                      : `「${result.concept}」をi-tyaで調べました！\n「${result.displayWord}」\n\n#i_tya #NT函館`;
-                    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
-                  }}>
-                    <FontAwesomeIcon icon={faXTwitter} />
-                  </button>
-                </div>
+                    <div className="share-buttons">
+                      <button className="index-btn" onClick={() => {
+                        const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
+                        navigator.clipboard.writeText(url);
+                        window.history.pushState({}, '', `?q=${encodeURIComponent(result.concept)}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}>
+                        {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
+                      </button>
+                      <button className="index-btn" onClick={() => {
+                        const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
+                        const isNew = result.status === 'new';
+                        const text = isNew
+                          ? `「${result.concept}」をi-tyaに登録しました！\n「${result.displayWord}」\n\n#i_tya #NT函館`
+                          : `「${result.concept}」をi-tyaで調べました！\n「${result.displayWord}」\n\n#i_tya #NT函館`;
+                        window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+                      }}>
+                        <FontAwesomeIcon icon={faXTwitter} />
+                      </button>
+                    </div>
+
+                    {/* 🚨 管理者モード (isAdmin) がONの時だけ、この「編集起動ボタン」が出現するぞ！ */}
+                    {isAdmin && (
+                      <div style={{ marginTop: '30px', textAlign: 'center', borderTop: '1px dashed rgba(255,255,255,0.2)', paddingTop: '20px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditing(true);
+                            // 現在表示されている内容を初期値としてフォームにセットする！
+                            const currentConcept = result.wordData && result.meaning_noun
+                              ? (activePos === 'noun' ? result.meaning_noun
+                                : activePos === 'verb' ? result.meaning_verb
+                                : result.meaning_extender)
+                              : result.concept;
+                              
+                            const currentReason = result.status === 'complexed' || !result.wordData
+                              ? result.reason
+                              : (activePos === 'noun' ? (result.reason_noun || result.reason)
+                                 : activePos === 'verb' ? (result.reason_verb || result.reason)
+                                 : (result.reason_extender || result.reason));
+                                 
+                            setEditConcept(currentConcept || '');
+                            setEditReason(currentReason || '');
+                          }}
+                          style={{ background: '#4a1c53', color: '#ff4d4d', padding: '10px 20px', borderRadius: '20px', border: '2px solid #ff4d4d', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s' }}
+                        >
+                          ⚙️ この単語データを編集する
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 

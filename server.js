@@ -12,6 +12,25 @@ admin.initializeApp({
 const db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your_secret_password";
+
+app.post('/api/trivias', async (req, res) => {
+  const { content, password } = req.body;
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(403).json({ error: "NO権限！" });
+  }
+
+  try {
+    await db.collection('itya_trivia').add({
+      content: content,
+      createdAt: new Date()
+    });
+    res.json({ message: "トリビア追加（笑）" });
+  } catch (error) {
+    res.status(500).json({ error: "登録に失敗！" });
+  }
+});
+
 const ityaRules = `
 あなたは人工言語「i-tya」の厳格なコンパイラ・言語学者だ。以下のルールに絶対に従い単語を生成せよ。指定のJSON形式以外は一切出力するな。
 
