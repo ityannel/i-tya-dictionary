@@ -356,7 +356,7 @@ export default function App() {
                         : result.meaning_extender)
                       : result.concept}
                     {result.status === 'new' && <span className="badge-new">新規</span>}
-                    {result.status === 'complexed' && <span className="badge-compound">複合概念</span>}
+                    {(result.status === 'complexed' || result.status === 'semi_complexed') && <span className="badge-compound">複合概念</span>}
                   </div>
 
                   {result.status !== 'complexed' && result.wordData && (
