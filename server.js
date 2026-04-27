@@ -310,6 +310,7 @@ app.post('/api/generate', async (req, res) => {
       console.log(`[INFO] 過去の複合語データベースから発見！: ${complexWord.combination} (ID: ${complexSnap.docs[0].id})`);
       return res.json({
         status: "complexed",
+        id: complexSnap.docs[0].id,
         meaning: complexWord.concept_ja,
         combination: complexWord.combination,
         complexity_type: complexWord.complexity_type || "semantic",
@@ -498,6 +499,84 @@ app.post('/api/generate', async (req, res) => {
   } catch (error) {
     console.error("エラー！:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/words/:wordId', async (req, res) => {
+  const { wordId } = req.params;
+  const { password, meaning, reason } = req.body;
+
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(403).json({ error: "権限がねえぞ！" });
+  }
+
+  try {
+    // itya_words か itya_complex か分からないから、両方探しに行く泥臭いやり方だ！
+    let docRef = db.collection('itya_words').doc(wordId);
+    let doc = await docRef.get();
+    
+    if (doc.exists) {
+      // 単語データベースにあった場合
+      await docRef.update({
+        concept_ja: meaning,
+        reason: reason,
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      // 複合語データベースを探す
+      docRef = db.collection('itya_complex').doc(wordId);
+      doc = await docRef.get();
+      if (doc.exists) {
+        await docRef.update({
+          concept_ja: meaning,
+          reason: reason,
+          updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        return res.status(404).json({ error: "該当する単語が見つからねえ！" });
+      }
+    }
+
+    // キャッシュをクリアする
+    cacheDictionary = null; 
+    res.json({ message: "更新成功だ！" });
+  } catch (error) {
+    console.error("更新エラー:", error);
+    res.status(500).json({ error: "データベースの更新に失敗したぜ" });
+  }
+});
+
+app.delete('/api/words/:wordId', async (req, res) => {
+  const { wordId } = req.params;
+  const { password } = req.body;
+
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(403).json({ error: "お前に消す権限はねえ！" });
+  }
+
+  try {
+    // これも両方探しに行って消す！
+    let docRef = db.collection('itya_words').doc(wordId);
+    let doc = await docRef.get();
+    
+    if (doc.exists) {
+      await docRef.delete();
+    } else {
+      docRef = db.collection('itya_complex').doc(wordId);
+      doc = await docRef.get();
+      if (doc.exists) {
+        await docRef.delete();
+      } else {
+        return res.status(404).json({ error: "消す単語が見つからねえ！" });
+      }
+    }
+
+    // キャッシュをクリアする
+    cacheDictionary = null;
+    res.json({ message: "データベースから抹消したぜ！" });
+  } catch (error) {
+    console.error("削除エラー:", error);
+    res.status(500).json({ error: "削除中にエラーが発生したぜ" });
   }
 });
 

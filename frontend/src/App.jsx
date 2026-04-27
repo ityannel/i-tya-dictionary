@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp, Link, Check} from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check, Settings } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
@@ -92,7 +92,7 @@ export default function App() {
 
     if (clickCountRef.current === 5) {
       const pass = prompt("管理者パスワードを入力してください：");
-      if (pass === "itya_admin_2026") {
+      if (pass === "itya_admin_NT") {
         setIsAdmin(true);
         alert("管理者権限を承認しました！");
       } else {
@@ -112,18 +112,18 @@ export default function App() {
       alert("ドキュメントIDがねえから更新できません！");
       return;
     }
-    
+
     try {
       const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${result.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          password: "itya_admin_2026",
+          password: "itya_admin_NT",
           meaning: editConcept,
           reason: editReason
         })
       });
-      
+
       if (res.ok) {
         alert("編集完了");
         setResult({ ...result, concept: editConcept, reason: editReason });
@@ -135,6 +135,27 @@ export default function App() {
       console.error("編集通信エラー", err);
     }
   };
+
+  const deleteWord = async (id, word) => {
+  if (!window.confirm(`「${word}」をデータベースから抹消していいんだな？`)) return;
+  
+  try {
+    const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: "itya_admin_NT" })
+    });
+
+    if (res.ok) {
+      alert("消去！");
+      window.location.reload(); 
+    } else {
+      alert("NO権限");
+    }
+  } catch (err) {
+    console.error("削除エラー:", err);
+  }
+};
 
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
@@ -241,7 +262,7 @@ export default function App() {
 
         setResult({
           status: data.status || 'unknown',
-          concept: data.meaning || data.meaning_noun|| searchQuery,
+          concept: data.meaning || data.meaning_noun || searchQuery,
           root: parsedRoot,
           displayWord: displayWord,
           reason: data.reason || "解説はまだ準備されていません！",
@@ -275,17 +296,17 @@ export default function App() {
   };
 
   const handleSearch = async (e) => {
-  e.preventDefault();
-  if (!query || isSearching) return;
-  clickedWordIdRef.current = null;
-  if (document.startViewTransition) {
-    document.startViewTransition(() => {
+    e.preventDefault();
+    if (!query || isSearching) return;
+    clickedWordIdRef.current = null;
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        executeSearch(query);
+      });
+    } else {
       executeSearch(query);
-    });
-  } else {
-    executeSearch(query);
-  }
-};
+    }
+  };
 
   const handleDictionaryClick = (wordData) => {
     clickedWordIdRef.current = wordData.id; // IDを保存（スクロール位置ではなく）
@@ -394,13 +415,14 @@ export default function App() {
                 <div className="skeleton-line long"></div>
                 <div className="skeleton-line long"></div>
                 <div className="skeleton-line mid"></div>
-                <div className="skeleton-line long"></div>
-                <div className="skeleton-line long"></div>
-                <div className="skeleton-line mid"></div>
               </div>
             )}
 
-            {isEditing ? (
+            {result && !isSearching && !error && (
+              <div className="inner-result fade-in-up">
+                
+                {/* 🚨 isEditing が true なら編集フォームを表示 */}
+                {isEditing ? (
                   <div className="admin-edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                     <div style={{color: '#ff4d4d', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center'}}>🔧 管理者データベース編集モード</div>
                     <input
@@ -425,7 +447,7 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  /* 🚨 編集してない時はお前の完璧なUIをそのまま表示する！ */
+                  /* 🚨 isEditing が false なら通常の単語表示 */
                   <>
                     <div className="concept-header">
                       <div className="concept-text">
@@ -475,7 +497,31 @@ export default function App() {
                       }
                     </div>
 
+                    {/* 🚨 シェアボタン群（ここに編集ボタンも並べる！） */}
                     <div className="share-buttons">
+                      
+                      {/* 管理者の時だけ表示される赤い編集ボタン */}
+                      {isAdmin && (
+                        <button className="index-btn admin-btn" onClick={() => {
+                          setIsEditing(true);
+                          const currentConcept = result.wordData && result.meaning_noun
+                            ? (activePos === 'noun' ? result.meaning_noun
+                              : activePos === 'verb' ? result.meaning_verb
+                              : result.meaning_extender)
+                            : result.concept;
+                          const currentReason = result.status === 'complexed' || !result.wordData
+                            ? result.reason
+                            : (activePos === 'noun' ? (result.reason_noun || result.reason)
+                               : activePos === 'verb' ? (result.reason_verb || result.reason)
+                               : (result.reason_extender || result.reason));
+                          setEditConcept(currentConcept || '');
+                          setEditReason(currentReason || '');
+                        }} style={{ color: '#ff4d4d', borderColor: '#ff4d4d' }}>
+                          <Settings size={20} strokeWidth={2.5} />
+                        </button>
+                      )}
+
+                      {/* コピーボタン */}
                       <button className="index-btn" onClick={() => {
                         const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
                         navigator.clipboard.writeText(url);
@@ -485,6 +531,8 @@ export default function App() {
                       }}>
                         {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
                       </button>
+
+                      {/* X（Twitter）ボタン */}
                       <button className="index-btn" onClick={() => {
                         const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
                         const isNew = result.status === 'new';
@@ -497,35 +545,6 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* 🚨 管理者モード (isAdmin) がONの時だけ、この「編集起動ボタン」が出現するぞ！ */}
-                    {isAdmin && (
-                      <div style={{ marginTop: '30px', textAlign: 'center', borderTop: '1px dashed rgba(255,255,255,0.2)', paddingTop: '20px' }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEditing(true);
-                            // 現在表示されている内容を初期値としてフォームにセットする！
-                            const currentConcept = result.wordData && result.meaning_noun
-                              ? (activePos === 'noun' ? result.meaning_noun
-                                : activePos === 'verb' ? result.meaning_verb
-                                : result.meaning_extender)
-                              : result.concept;
-                              
-                            const currentReason = result.status === 'complexed' || !result.wordData
-                              ? result.reason
-                              : (activePos === 'noun' ? (result.reason_noun || result.reason)
-                                 : activePos === 'verb' ? (result.reason_verb || result.reason)
-                                 : (result.reason_extender || result.reason));
-                                 
-                            setEditConcept(currentConcept || '');
-                            setEditReason(currentReason || '');
-                          }}
-                          style={{ background: '#4a1c53', color: '#ff4d4d', padding: '10px 20px', borderRadius: '20px', border: '2px solid #ff4d4d', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.3s' }}
-                        >
-                          ⚙️ この単語データを編集する
-                        </button>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -538,6 +557,7 @@ export default function App() {
                 <div className="reason-text">データベースとの接続に失敗しました！</div>
               </div>
             )}
+
           </div>
 
           <button
@@ -552,14 +572,16 @@ export default function App() {
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">
             <p className="total-count">{total}語収録中</p>
+            {/* 🚨 isAdmin と onDelete を確実に DictionaryList に渡す！ */}
             <DictionaryList 
               onWordClick={handleDictionaryClick}
               onTotalLoaded={(count) => setTotal(count)} 
+              isAdmin={isAdmin}
+              onDelete={deleteWord}
             />
           </div>
         )}
 
-        {/* 戻るボタン */}
         <button
           className={`scroll-top-btn ${showTopBtn ? 'show' : ''}`}
           onClick={scrollToTop}
@@ -567,6 +589,7 @@ export default function App() {
         >
           <ArrowUp size={28} strokeWidth={3.5} />
         </button>
+
       </div>
     </div>
   );
