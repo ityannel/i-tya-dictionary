@@ -21,6 +21,17 @@ export default function App() {
 
   const hasSearchedFromUrl = useRef(false);
 
+  useEffect(() => {
+    if (hasSearchedFromUrl.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (q) {
+      hasSearchedFromUrl.current = true;
+      setQuery(q);
+      executeSearch(q);
+    }
+  }, []);
+
 
   useEffect(() => {
     let triviaInterval;
@@ -180,13 +191,17 @@ export default function App() {
           root: parsedRoot,
           displayWord: displayWord,
           reason: data.reason || "解説はまだ準備されていません！",
-          reason_noun: data.reason_noun,
-          reason_verb: data.reason_verb,
-          reason_extender: data.reason_extender,
+          reason_noun: data.reason_noun || data.reason || "解説はまだ準備されていません！",
+          reason_verb: data.reason_verb || data.reason || "解説はまだ準備されていません！",
+          reason_extender: data.reason_extender || data.reason || "解説はまだ準備されていません！",
           meaning_noun: data.meaning_noun,
           meaning_verb: data.meaning_verb,
           meaning_extender: data.meaning_extender,
-          wordData: data.data,
+          wordData: data.data || (data.root ? {
+            noun: data.root + 'a',
+            verb: data.root + 'i',
+            extender: data.root + 'u'
+          } : null),
           isNew: isNewWord,
           isComplex: !isComplexWord
         });
@@ -196,15 +211,7 @@ export default function App() {
 
       setTrivia(data.trivia || "この概念に関するトリビアはまだないぜ。");
 
-      try {
-        if (document.startViewTransition) {
-          document.startViewTransition(finishSearching);
-        } else {
-          finishSearching();
-        }
-      } catch {
-        finishSearching();
-      }
+      finishSearching();
 
     } catch (err) {
       console.error("通信エラー！", err);
@@ -213,27 +220,18 @@ export default function App() {
     }
   };
 
-  // handleSearchはこれだけになる
   const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!query || isSearching) return;
-    clickedWordIdRef.current = null;
-    if (document.startViewTransition) {
-      document.startViewTransition(() => executeSearch(query));
-    } else {
+  e.preventDefault();
+  if (!query || isSearching) return;
+  clickedWordIdRef.current = null;
+  if (document.startViewTransition) {
+    document.startViewTransition(() => {
       executeSearch(query);
-    }
-  };
-
-  // URLパラメータから自動検索
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const q = params.get('q');
-    if (q) {
-      setQuery(q);
-      executeSearch(q);
-    }
-  }, []);
+    });
+  } else {
+    executeSearch(query);
+  }
+};
 
   const handleDictionaryClick = (wordData) => {
     clickedWordIdRef.current = wordData.id; // IDを保存（スクロール位置ではなく）
@@ -250,9 +248,9 @@ export default function App() {
         root: parsedRoot,
         displayWord: wordData.word,
         reason: wordData.fullData?.reason || "解説はまだ準備されていません！",
-        reason_noun: wordData.fullData?.reason_noun,
-        reason_verb: wordData.fullData?.reason_verb,
-        reason_extender: wordData.fullData?.reason_extender,
+        reason_noun: wordData.fullData?.reason_noun || wordData.fullData?.reason || "解説はまだ準備されていません！",
+        reason_verb: wordData.fullData?.reason_verb || wordData.fullData?.reason || "解説はまだ準備されていません！",
+        reason_extender: wordData.fullData?.reason_extender || wordData.fullData?.reason || "解説はまだ準備されていません！",
         meaning_noun: wordData.fullData?.meaning_noun,
         meaning_verb: wordData.fullData?.meaning_verb,
         meaning_extender: wordData.fullData?.meaning_extender,
@@ -365,7 +363,18 @@ export default function App() {
                     <select
                       className="pos-select"
                       value={activePos}
-                      onChange={(e) => setActivePos(e.target.value)}
+                      onChange={(e) => {
+                        const el = document.querySelector('.word-display');
+                        const el2 = document.querySelector('.reason-text');
+                        [el, el2].forEach(el => {
+                          if (el) {
+                            el.style.animation = 'none';
+                            el.offsetHeight; // reflow
+                            el.style.animation = '';
+                          }
+                        });
+                        setActivePos(e.target.value);
+                      }}
                     >
                       <option value="noun">名詞</option>
                       <option value="verb">動詞</option>
@@ -387,7 +396,6 @@ export default function App() {
                   }
                 </div>
 
-                {/* 共有ボタン群 */}
                 <div className="share-buttons">
                   <button className="index-btn" onClick={() => {
                     const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
@@ -433,7 +441,10 @@ export default function App() {
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">
             <p className="total-count">{total}語収録中</p>
-            <DictionaryList onWordClick={handleDictionaryClick} />
+            <DictionaryList 
+              onWordClick={handleDictionaryClick}
+              onTotalLoaded={(count) => setTotal(count)} 
+            />
           </div>
         )}
 

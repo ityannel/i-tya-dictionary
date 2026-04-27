@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 const alphabets = ['all', 'a', 'i', 'u', 'h', 'k', 'l', 'm', 'n', 'p', 's', 't', 'w', 'y'];
 
-export default function DictionaryList({ onWordClick }) {
+export default function DictionaryList({ onWordClick, onTotalLoaded }) {
   const [words, setWords] = useState([]);
   const [page, setPage] = useState(1);
   const [selectedLetter, setSelectedLetter] = useState('all');
@@ -36,9 +36,13 @@ export default function DictionaryList({ onWordClick }) {
           return [...prev, ...uniqueNewWords];
         });
 
+        if (onTotalLoaded && data.total !== undefined) {
+          onTotalLoaded(data.total);
+        }
+
         setHasMore(data.hasMore);
       } catch (error) {
-        console.error('辞書の読み込みに失敗。。', error);
+        console.error('辞書の読み込みに失敗。', error);
       } finally {
         setIsLoading(false);
       }
@@ -74,6 +78,7 @@ export default function DictionaryList({ onWordClick }) {
             <div
               ref={isLast ? lastWordElementRef : null}
               key={entry.id}
+              data-word-id={entry.id}
               className="word-card"
               onClick={() => onWordClick(entry)}
             >

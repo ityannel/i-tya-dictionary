@@ -248,7 +248,6 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
-  padding-bottom: 60px;
 }
 
 .morph-input.hidden {
@@ -365,6 +364,7 @@ body {
   overflow-wrap: anywhere;
   white-space: normal;
   max-width: 100%;
+  animation: fadeInUp 0.3s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 .concept-text {
@@ -386,6 +386,8 @@ body {
   word-break: break-word;
   overflow-wrap: anywhere;
   width: 100%;
+  padding-top: 30px;
+  animation: fadeInUp 0.3s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
 .morph-box.is-error {
@@ -427,10 +429,6 @@ body {
   padding: 2px 10px;
   font-size: 1.2rem;
   font-weight: 700;
-}
-
-.reason-text {
-  padding-top: 30px;
 }
 
 
@@ -644,7 +642,6 @@ body {
 .scroll-top-btn:active svg {
   transform: scale(0.6);
   animation: none;
-  /* ジャンプを強制キャンセルして縮ませる */
   transition: transform 0.1s ease;
 }
 
@@ -656,25 +653,13 @@ body {
 }
 
 .share-buttons {
-  position: absolute;
+  position: static;
   bottom: 0;
   right: 0;
   display: flex;
   gap: 10px;
-}
-
-.share-btn {
-  background: transparent;
-  border: 1.5px solid rgba(112, 255, 112, 1);
-  border-radius: 999px;
-  color: rgba(112, 255, 112, 1);
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 .concept-header {
@@ -692,25 +677,42 @@ body {
 .x-btn {
   border-color: rgba(112, 255, 112, 0.6);
 }
+
 .pos-select {
   flex-shrink: 0;
-  background: transparent;
-  border: 1.5px solid rgba(112, 255, 112, 0.4);
+  background-color: transparent;
+  border: 3px solid rgba(112, 255, 112, 1);
   border-radius: 999px;
-  color: rgba(112, 255, 112, 0.6);
-  padding: 4px 12px;
-  font-size: 0.85rem;
+  color: rgba(112, 255, 112, 1);
+  padding: 8px 35px 8px 16px;
+  font-size: 1rem;
   font-family: inherit;
   font-weight: 700;
   cursor: pointer;
   outline: none;
   appearance: none;
   -webkit-appearance: none;
+  background-image: url('data:image/svg+xml;charset=US-ASCII,<svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="%2370FF70" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
+.pos-select:hover, 
+.pos-select:focus {
+  background-color: rgba(112, 255, 112, 1);
+  color: rgba(74, 28, 83, 1);
+}
+
+/* ※注意※
+  PCのChrome等では効くが、スマホではOS標準のデザインになる。
+  これ以上は<select>の限界だ！
+*/
 .pos-select option {
-  background: rgba(74, 28, 83, 1);
+  background-color: rgba(74, 28, 83, 1);
   color: rgba(112, 255, 112, 1);
+  font-weight: 700;
 }
 
 .reason-text {
@@ -835,10 +837,5 @@ body {
 
   .search-form {
     margin-bottom: 1rem;
-  }
-
-  .pos-tab {
-    padding: 6px 14px;
-    font-size: 0.9rem;
   }
 }

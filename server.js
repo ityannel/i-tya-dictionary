@@ -36,6 +36,7 @@ const ityaRules = `
 7. reasonは日本語の「だ・である」体。既存単語と重複した等、システム的なメタ発言は厳禁。
 8. ドキュメント内例文の単語は未学習扱い("new")とする。
 9. part_of_speechについては、入力されたものに対して最も適当な形を選んでください。たとえば、「最新にする」だったら動詞、「最新」だったら名詞、「最新の」だったら拡張詞です。
+10. 文章はそれぞれの説明で２文程度にしてください。
 
 【JSONフォーマット】※状況に応じて以下のいずれかの構造のみ出力
 1. 新概念として新しい語幹を生成した場合:
@@ -400,6 +401,7 @@ app.post('/api/generate', async (req, res) => {
       validateRoot(aiRes.root);
       const newDoc = db.collection('itya_words').doc();
       batch.set(newDoc, {
+        concept_ja: concept,
         meaning_noun: aiRes.meaning_noun || "",
         meaning_verb: aiRes.meaning_verb || "",
         meaning_extender: aiRes.meaning_extender || "",
@@ -417,6 +419,7 @@ app.post('/api/generate', async (req, res) => {
     } else if (aiRes.status === 'complexed') {
       const newComplex = db.collection('itya_complex').doc();
       batch.set(newComplex, {
+        concept_ja: concept,
         meaning: concept,
         combination: aiRes.combination,
         complexity_type: aiRes.complexity_type,
@@ -433,6 +436,7 @@ app.post('/api/generate', async (req, res) => {
             validateRoot(w.root);
             const partDoc = db.collection('itya_words').doc();
             batch.set(partDoc, {
+              concept_ja: w.meaning || `(Part of ${concept})`,
               meaning: w.meaning || `(Part of ${concept})`,
               word_noun: w.root + "a",
               word_verb: w.root + "i",
@@ -447,8 +451,9 @@ app.post('/api/generate', async (req, res) => {
 
       const newComplex = db.collection('itya_complex').doc();
       batch.set(newComplex, {
-        meaning: concept,
-        combination: aiRes.combination,
+      concept_ja: concept,
+      meaning: concept,
+      combination: aiRes.combination,
         words: aiRes.words,
         reason: aiRes.reason,
         created_at: admin.firestore.FieldValue.serverTimestamp()
