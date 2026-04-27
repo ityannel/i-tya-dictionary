@@ -791,7 +791,8 @@ body {
   }
 
   .word-display {
-    font-size: 3.5rem;
+    font-size: 3rem;
+    margin-top: 10px;
     word-break: keep-all;
   }
 
@@ -832,10 +833,36 @@ body {
   }
 
   .trivia-text {
-    font-size: 0.9rem;
+    font-size: 0.9rem;                                                               
   }
 
   .search-form {
     margin-bottom: 1rem;
+  }
+
+  .concept-text {
+    order: 0;
+    font-size: 1.4rem;
+    max-width: 100%;
+    padding-right: 0;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  .pos-select {
+    font-size: 0.75rem;
+    padding: 4px 24px 4px 10px;
+    order: -1;
+    background-size: 10px;
+    background-position: right 8px center;
+  }
+
+  .concept-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-right: 50px;
   }
 }
