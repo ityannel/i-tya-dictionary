@@ -746,7 +746,7 @@ export default function App() {
                 <div className="reason-text">
                   {error === 'overload' && (errorMessage || 'AIサーバーが混雑しています。しばらく待ってから再試行してください。')}
                   {error === 'invalid' && '入力を理解できませんでした。別の表現で試してみてください。'}
-                  {error === 'connection' && (errorMessage || 'サーバーとの接続に失敗しました。ネットワークを確認してください。')}
+                  {error === 'connection' && 'サーバーとの接続に失敗しました。ネットワークを確認してください。'}
                 </div>
               </div>
             )}

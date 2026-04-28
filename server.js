@@ -5,7 +5,6 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const admin = require('firebase-admin');
 
-
 let consecutiveFailures = 0;
 let aiBlockUntil = 0;
 const BLOCK_DURATION_MS = 3 * 60 * 1000;
@@ -392,11 +391,12 @@ app.post('/api/generate', async (req, res) => {
               consecutiveFailures++;
               console.error(`[ERROR] 待機時間オーバー！連続失敗回数: ${consecutiveFailures}`);
               if (consecutiveFailures >= 3) {
-                console.error(`💥 致命的エラー連発！サーキットブレーカー発動！${BLOCK_DURATION_MS/60000}分間停止します！`);
+                console.error(`致命的なエラー！${BLOCK_DURATION_MS/60000}分間停止します！`);
                 aiBlockUntil = Date.now() + BLOCK_DURATION_MS;
+                throw new Error("CIRCUIT_BREAKER_TRIPPED");
               }
 
-              throw new Error("High Demand Timeout"); 
+              throw new Error("API_OVERLOAD");
             }
 
             if (waitTimeForApi >= 8000) {
@@ -538,11 +538,18 @@ app.post('/api/generate', async (req, res) => {
 
   } catch (error) {
     console.error("エラー！:", error);
-    const isOverload =
-      error.message.includes('503') ||
-      error.message.includes('Service Unavailable') ||
-      error.message.includes('high demand');
-    res.status(isOverload ? 503 : 500).json({ error: error.message });
+    if (error.message === "CIRCUIT_BREAKER_TRIPPED") {
+      const remaining = Math.ceil((aiBlockUntil - Date.now()) / 1000);
+      return res.status(503).json({ error: `システム保護のため、あと${remaining}秒間AIを停止します。` });
+    }
+    const errMsg = error.message.toLowerCase();
+    const isOverload = error.message === "API_OVERLOAD" || errMsg.includes('503') || errMsg.includes('service unavailable') || errMsg.includes('high demand');
+    
+    if (isOverload) {
+      return res.status(503).json({ error: "AIサーバーが極度に混雑しています。少し待ってから再度お試しください。" });
+    }
+
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -932,7 +939,18 @@ app.get('/api/dictionary', async (req, res) => {
     });
 
   } catch (error) {
-    console.error("辞書取得エラー:", error);
-    res.status(500).json({ words: [], hasMore: false, error: "Failed to fetch dictionary" });
+    console.error("エラー！:", error);
+    if (error.message === "CIRCUIT_BREAKER_TRIPPED") {
+      const remaining = Math.ceil((aiBlockUntil - Date.now()) / 1000);
+      return res.status(503).json({ error: `システム保護のため、あと${remaining}秒間AIを停止します。` });
+    }
+    const errMsg = error.message.toLowerCase();
+    const isOverload = error.message === "API_OVERLOAD" || errMsg.includes('503') || errMsg.includes('service unavailable') || errMsg.includes('high demand');
+    
+    if (isOverload) {
+      return res.status(503).json({ error: "AIサーバーが極度に混雑しています。少し待ってから再度お試しください。" });
+    }
+
+    res.status(500).json({ error: error.message });
   }
 });
