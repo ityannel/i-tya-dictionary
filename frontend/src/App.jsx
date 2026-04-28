@@ -31,6 +31,8 @@ export default function App() {
   const hasSearchedFromUrl = useRef(false);
   const [iconScale, setIconScale] = useState(1);
   const [displayIconType, setDisplayIconType] = useState('search');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [error, setError] = useState(null);
 
   let consecutiveFailures = 0;
   let aiBlockUntil = 0;
@@ -238,6 +240,7 @@ export default function App() {
       setIsSearching(false);
       setQuery('');
       setError(null);
+      setErrorMessage('');
       setMode('auto');
     };
 
@@ -294,7 +297,9 @@ export default function App() {
       });
 
       if (res.status === 503) {
+        const errData = await res.json().catch(() => ({}));
         setError('overload');
+        setErrorMessage(errData.error || '');
         setIsSearching(false);
         return;
       }
@@ -308,6 +313,7 @@ export default function App() {
       }
       if (data.error && (data.error.includes('503') || data.error.includes('high demand') || data.error.includes('混雑'))) {
         setError('overload');
+        setErrorMessage(data.error);
         setIsSearching(false);
         return;
       }
@@ -736,15 +742,15 @@ export default function App() {
             {error && !isSearching && (
               <div className="inner-result fade-in-up">
                 <p className="concept-text">
-                  {error === 'overload' ? 'サーバー混雑中' : 'エラー！'}
+                  {error === 'overload' ? 'サーバー保護中！' : 'エラー！'}
                 </p>
-                <h2 className="word-display">
-                  {error === 'overload' ? 'High Demand' : 'Error'}
+                <h2 className="word-display" style={{ fontSize: error === 'overload' ? '2.2rem' : '' }}>
+                  {error === 'overload' ? 'SYSTEM OVERLOAD' : 'Error'}
                 </h2>
                 <div className="reason-text">
-                  {error === 'overload' && 'AIサーバーが混雑しています。しばらく待ってから再試行してください。'}
+                  {error === 'overload' && (errorMessage || 'AIサーバーが混雑しています。しばらく待ってから再試行してください。')}
                   {error === 'invalid' && '入力を理解できませんでした。別の表現で試してみてください。'}
-                  {error === 'connection' && 'サーバーとの接続に失敗しました。ネットワークを確認してください。'}
+                  {error === 'connection' && (errorMessage || 'サーバーとの接続に失敗しました。ネットワークを確認してください。')}
                 </div>
               </div>
             )}
