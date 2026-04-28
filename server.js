@@ -613,26 +613,25 @@ app.listen(PORT, () => {
 function validateRoot(root) {
   if (!root) throw new Error("語幹が空！");
 
-  if (/\s/.test(root)) {
-    throw new Error(`語幹にスペース！ [${root}] `);
+  // 大文字を許可（固有名詞対応）してから小文字化
+  const normalizedRoot = root.toLowerCase();
+
+  if (/\s/.test(normalizedRoot)) {
+    throw new Error(`語幹にスペース！ [${root}]`);
   }
 
-  if (/[aiu]$/i.test(root)) {
+  if (/[aiu]$/.test(normalizedRoot)) {
     throw new Error(`語幹の末尾が母音！: [${root}]`);
   }
 
-  const testWord = root + "a";
-
-  if (!root) throw new Error("語幹が空！");
-  const normalizedRoot = root.toLowerCase();
   const testWord = normalizedRoot + "a";
   const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
+
   if (!ityaRegex.test(testWord)) {
     throw new Error(`i-tyaの音韻規則に違反しました！不正な子音の連続や無効な文字が含まれています: [${root}]`);
   }
 
   const vowelCount = (testWord.match(/[aiu]/g) || []).length;
-
   if (vowelCount <= 1) {
     throw new Error(`レベル1の単語を作ったよ！: [${root}]`);
   }
