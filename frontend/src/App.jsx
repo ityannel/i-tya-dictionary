@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp, Link, Check, Settings, PenTool} from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check, Settings, Languages} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
@@ -39,11 +39,9 @@ export default function App() {
     isLongPress.current = false;
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
-      // 長押し成功でモード切替！
       setMode(prev => prev === 'translate' ? 'word' : 'translate');
-      // Android用バイブ（iOSでは悲しいが無反応だ）
       if (navigator.vibrate) navigator.vibrate(50); 
-    }, 500); // 0.5秒で長押しと判定する
+    }, 500);
   };
 
   const handleTouchEnd = () => {
@@ -806,7 +804,7 @@ export default function App() {
             }}>
               {/* displayIconType の状態に合わせて、Lucideアイコンを出し分ける！ */}
               {displayIconType === 'x' && <X size={28} strokeWidth={3.5} />}
-              {displayIconType === 'translate' && <PenTool size={28} strokeWidth={3.5} />}
+              {displayIconType === 'translate' && <Languages size={28} strokeWidth={2} />}
               {displayIconType === 'search' && <Search size={28} strokeWidth={3.5} />}
             </span>
           </button>
