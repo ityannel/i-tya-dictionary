@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp, Link, Check, Settings } from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check, Settings, PenTool} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
@@ -26,8 +26,29 @@ export default function App() {
   const [mode, setMode] = useState('auto');
   const [isTranslateMode, setIsTranslateMode] = useState(false);
   const [translationResult, setTranslationResult] = useState(null);
-
+  const timerRef = useRef(null);
+  const isLongPress = useRef(false);
   const hasSearchedFromUrl = useRef(false);
+  const [iconScale, setIconScale] = useState(1);
+  const [displayIconType, setDisplayIconType] = useState('search');
+
+  
+  const isExpanded = isSearching || result || translationResult || error;
+
+  const handleTouchStart = () => {
+    isLongPress.current = false;
+    timerRef.current = setTimeout(() => {
+      isLongPress.current = true;
+      // 長押し成功でモード切替！
+      setMode(prev => prev === 'translate' ? 'word' : 'translate');
+      // Android用バイブ（iOSでは悲しいが無反応だ）
+      if (navigator.vibrate) navigator.vibrate(50); 
+    }, 500); // 0.5秒で長押しと判定する
+  };
+
+  const handleTouchEnd = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
 
   useEffect(() => {
     if (hasSearchedFromUrl.current) return;
@@ -39,6 +60,26 @@ export default function App() {
       executeSearch(q);
     }
   }, []);
+
+  useEffect(() => {
+  let targetIcon = 'search';
+  if (isExpanded) {
+    targetIcon = 'x';
+  } else if (mode === 'translate') {
+    targetIcon = 'translate';
+  }
+
+  if (displayIconType !== targetIcon) {
+    setIconScale(0); // シュッと縮む
+    
+    const timer = setTimeout(() => {
+      setDisplayIconType(targetIcon);
+      setIconScale(1); // ボヨーンと戻る
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }
+}, [isExpanded, mode, displayIconType]);
 
   useEffect(() => {
     let triviaInterval;
@@ -164,19 +205,17 @@ export default function App() {
     }
   };
 
-  // 【修正】自動判定の精度向上版
   const isTranslateSentence = (text) => {
-    if (mode === 'word') return false;
-    if (mode === 'translate') return true;
+    const t = text.trim();
+    if (!t) return false;
 
-    // 助詞・句読点
-    if (/[はをがにでもとやのへからだけまでしかこそさえ。、！？]/.test(text)) return true;
-    // 動詞活用形
-    if (/(?:する|した|して|している|しない|できる|できた|なった|ある|ない|いる|です|ます|ました|ません|だった|だろう|でしょう)$/.test(text)) return true;
-    // スペース区切り（複数語）
-    if (/\s/.test(text.trim())) return true;
-    // 10文字以上
-    return text.length >= 10;
+    if (/[。、！？\s]/.test(t)) return true;
+
+    if (/(?:する|した|して|している|しない|できる|できた|なった|ある|ない|いる|です|ます|ました|ません|だった|だろう|でしょう|ください|なさい|たい|させる|られる)$/.test(t)) return true;
+
+    if (/[をにがへでと][ぁ-ん一-龥a-zA-Z]+[うくぐすつぬぶむるただ]$/.test(t)) return true;
+
+    return t.length >= 12;
   };
 
   const resetSearch = () => {
@@ -189,7 +228,7 @@ export default function App() {
       setIsSearching(false);
       setQuery('');
       setError(null);
-      setMode('auto'); // 【修正】リセット時にモードも戻す
+      setMode('auto');
     };
 
     if (!document.startViewTransition) {
@@ -494,8 +533,6 @@ export default function App() {
   // 現在のモード表示用（ピルのどちらをアクティブにするか）
   const currentIsTranslate = isTranslateSentence(query);
 
-  const isExpanded = isSearching || result || translationResult || error;
-
   return (
     <div className="app-container">
       <div className={`content-wrapper ${isExpanded ? 'moved-up' : ''}`}>
@@ -509,9 +546,19 @@ export default function App() {
             <input
               type="text"
               className={`morph-input ${isExpanded ? 'hidden' : ''}`}
-              placeholder="日本語で検索..."
+              placeholder={mode === 'translate' ? "i-tyaに翻訳..." : "日本語で検索..."}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const newText = e.target.value;
+                setQuery(newText);
+                if (newText.trim() !== '') {
+                  if (isTranslateSentence(newText)) {
+                    setMode('translate');
+                  } else {
+                    setMode('word');
+                  }
+                }
+              }}
               disabled={isExpanded}
             />
 
@@ -717,35 +764,53 @@ export default function App() {
           </div>
 
           <button
-            onClick={isExpanded ? resetSearch : undefined}
             type={isExpanded ? "button" : "submit"}
             className={`search-button ${isExpanded ? 'stored' : ''}`}
+            
+            // 🚨 長押し・タッチイベント群
+            onMouseDown={handleTouchStart}
+            onMouseUp={handleTouchEnd}
+            onMouseLeave={handleTouchEnd}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            
+            // 🚨 クリック暴発防止＆クリア処理
+            onClick={(e) => {
+              if (isLongPress.current) {
+                e.preventDefault();
+                isLongPress.current = false;
+                return;
+              }
+              if (isExpanded) {
+                e.preventDefault();
+                resetSearch();
+              }
+            }}
+            
+            // 🚨 スマホ長押しメニュー殺し
+            style={{
+              userSelect: 'none',
+              WebkitTouchCallout: 'none',
+              WebkitUserSelect: 'none'
+            }}
           >
-            {isExpanded ? <X size={28} strokeWidth={3.5} /> : <Search size={28} strokeWidth={3.5} />}
+            {/* 💡 ココだ！ spanで囲んでポップアニメーションを当てる！ */}
+            <span style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: `scale(${iconScale})`,
+              transition: iconScale === 0 
+                ? 'transform 0.15s ease-in' 
+                : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+            }}>
+              {/* displayIconType の状態に合わせて、Lucideアイコンを出し分ける！ */}
+              {displayIconType === 'x' && <X size={28} strokeWidth={3.5} />}
+              {displayIconType === 'translate' && <PenTool size={28} strokeWidth={3.5} />}
+              {displayIconType === 'search' && <Search size={28} strokeWidth={3.5} />}
+            </span>
           </button>
         </form>
-
-        {/* 【修正】モード切り替えをピルUI化 */}
-        {query && !isExpanded && (
-          <div className="mode-indicator">
-            <div className="mode-toggle-pill">
-              <button
-                type="button"
-                className={`mode-pill-btn ${!currentIsTranslate ? 'active' : ''}`}
-                onClick={() => setMode('word')}
-              >
-                🔍 単語
-              </button>
-              <button
-                type="button"
-                className={`mode-pill-btn ${currentIsTranslate ? 'active' : ''}`}
-                onClick={() => setMode('translate')}
-              >
-                📝 翻訳
-              </button>
-            </div>
-          </div>
-        )}
 
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">

@@ -741,7 +741,7 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 `;
 
 const translateModel = genAI.getGenerativeModel({ 
-  model: "gemini-3.1-pro-preview", 
+  model: "gemini-2.5-flash", 
   systemInstruction: translateRules 
 });
 
@@ -750,7 +750,6 @@ app.post('/api/translate', async (req, res) => {
   if (!sentence) return res.status(400).json({ error: "文章が空！" });
 
   try {
-    // キャッシュを使い回す（Firestoreへの追加Readなし）
     if (!wordListCache || (Date.now() - wordListCacheTime) > WORD_LIST_CACHE_DURATION) {
       const allWords = await db.collection('itya_words').get();
       wordListCache = allWords.docs;
@@ -792,9 +791,9 @@ app.post('/api/translate', async (req, res) => {
             word_noun: item.root + "a",
             word_verb: item.root + "i",
             word_extender: item.root + "u",
-            reason_noun: "",
-            reason_verb: "",
-            reason_extender: "",
+            reason_noun: item.reason_noun || "",
+            reason_verb: item.reason_verb || "",
+            reason_extender: item.reason_extender || "",
             level: 2,
             created_at: admin.firestore.FieldValue.serverTimestamp()
           });

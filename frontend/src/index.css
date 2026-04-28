@@ -334,7 +334,7 @@ body {
   gap: 20px;
   width: 100%;
   box-sizing: border-box;
-  margin-bottom: 5rem;
+  margin-bottom: 1.5rem;
 }
 
 
@@ -720,57 +720,32 @@ body {
   min-height: 200px;
 }
 
-.mode-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: -4rem;
-  margin-bottom: 1rem;
-  padding-right: 100px;
-}
-
-/* ピルUI */
-.mode-toggle-pill {
-  display: flex;
-  background: rgba(112, 255, 112, 0.08);
-  border: 2px solid rgba(112, 255, 112, 0.25);
-  border-radius: 999px;
-  padding: 3px;
-  gap: 2px;
-}
-
-.mode-pill-btn {
+.mode-icon-toggle {
   background: transparent;
   border: none;
-  border-radius: 999px;
-  color: rgba(112, 255, 112, 0.45);
-  font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 4px 14px;
+  font-size: 1.6rem; /* アイコンの大きさはお好みで調整しろ */
   cursor: pointer;
-  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-              transform 0.15s ease;
-  white-space: nowrap;
-  user-select: none;
+  padding: 0 8px 0 16px; /* 左側に少し余白を持たせる */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+  user-select: none; /* スマホで長押しした時のハイライトを防ぐ */
+  -webkit-tap-highlight-color: transparent; /* スマホ特有のタップ時の青い枠を消す */
 }
 
-.mode-pill-btn.active {
-  background: rgba(112, 255, 112, 1);
-  color: rgba(74, 28, 83, 1);
+/* 押した時に少し沈むアニメーション（気持ちいいUX） */
+.mode-icon-toggle:active {
+  transform: scale(0.85);
+  opacity: 0.7;
 }
 
-.mode-pill-btn:not(.active):hover {
-  color: rgba(112, 255, 112, 0.8);
-  background: rgba(112, 255, 112, 0.12);
+/* 検索時に消える input との余白調整 */
+.morph-input {
+  /* もし input の左側の padding がデカすぎるなら、ここで微調整しろ */
+  /* padding-left: 10px; */
 }
 
-.mode-pill-btn:active {
-  transform: scale(0.93);
-}
-
-/*スマホ*/
 @media (max-width: 768px) {
   .word-itya{
     word-break: break-all;
@@ -926,13 +901,21 @@ body {
   }
 
   .mode-indicator {
-    padding-right: 60px;
-    margin-top: -0.8rem;
-    margin-bottom: 0.5rem;
+    /* スマホではsearch-formの下に自然な余白で配置 */
+    padding-right: 0;
+    margin-top: 0;
+    margin-bottom: 0.8rem;
+    justify-content: flex-start;
+  }
+
+  .mode-toggle-pill {
+    gap: 6px;
   }
 
   .mode-pill-btn {
-    font-size: 0.7rem;
-    padding: 3px 10px;
+    font-size: 0.85rem;
+    height: 40px;
+    padding: 0 14px;
+    border-width: 2.5px;
   }
 }
