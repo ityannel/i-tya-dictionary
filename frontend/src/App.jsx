@@ -9,7 +9,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState(null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(null); // null | 'overload' | 'invalid' | 'connection'
   const [loadingStep, setLoadingStep] = useState(0);
   const [trivia, setTrivia] = useState('');
   const [showTopBtn, setShowTopBtn] = useState(false);
@@ -71,11 +71,17 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const loadingMessages = [
-    "をデータベースから検索中...",
-    "の統語構造を分析中...",
-    "の説明を生成中..."
-  ];
+  const loadingMessages = isTranslateMode
+    ? [
+        "をi-tyaに翻訳中...",
+        "の文法構造を解析中...",
+        "の単語を照合中..."
+      ]
+    : [
+        "をデータベースから検索中...",
+        "の統語構造を分析中...",
+        "の説明を生成中..."
+      ];
 
   useEffect(() => {
     let interval;
@@ -86,7 +92,7 @@ export default function App() {
       }, 1500);
     }
     return () => clearInterval(interval);
-  }, [isSearching]);
+  }, [isSearching, isTranslateMode]);
 
   const handleTitleClick = () => {
     clickCountRef.current += 1;
@@ -182,7 +188,7 @@ export default function App() {
       setIsTranslateMode(false);
       setIsSearching(false);
       setQuery('');
-      setError(false);
+      setError(null);
       setMode('auto'); // 【修正】リセット時にモードも戻す
     };
 
@@ -215,7 +221,7 @@ export default function App() {
   const executeSearch = async (searchQuery) => {
     setIsSearching(true);
     setResult(null);
-    setError(false);
+    setError(null);
     setTrivia("トリビアを読み込み中...");
 
     try {
@@ -236,10 +242,23 @@ export default function App() {
         body: JSON.stringify({ concept: searchQuery }),
       });
 
+      // 【修正】ステータスチェックをres.json()より先に行う
+      if (res.status === 503) {
+        setError('overload');
+        setIsSearching(false);
+        return;
+      }
+
       const data = await res.json();
 
       if (data.status === 'invalid' || data.status === 'invailed') {
-        setError(true);
+        setError('invalid');
+        setIsSearching(false);
+        return;
+      }
+      // サーバーがoverloadをerrorフィールドで返してきた場合も拾う
+      if (data.error && (data.error.includes('503') || data.error.includes('high demand') || data.error.includes('混雑'))) {
+        setError('overload');
         setIsSearching(false);
         return;
       }
@@ -308,7 +327,7 @@ export default function App() {
 
     } catch (err) {
       console.error("通信エラー！", err);
-      setError(true);
+      setError('connection');
       setIsSearching(false);
     }
   };
@@ -316,20 +335,70 @@ export default function App() {
   const executeTranslation = async (sentence) => {
     setIsSearching(true);
     setResult(null);
-    setError(false);
+    setError(null);
 
-    try {
-      const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sentence }),
-      });
-      const data = await res.json();
-      setTranslationResult(data);
-    } catch (err) {
-      setError(true);
-    } finally {
-      setIsSearching(false);
+    const MAX_RETRIES = 4;
+    const RETRY_DELAY_MS = 3000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sentence }),
+        });
+
+        // 503（high demand）はリトライ、最終的に失敗したらoverloadエラー
+        if (res.status === 503) {
+          console.warn(`[翻訳] 503 high demand、${attempt}回目リトライ待機中...`);
+          if (attempt < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
+            continue;
+          } else {
+            setError('overload');
+            setIsSearching(false);
+            return;
+          }
+        }
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          console.error("翻訳APIエラー:", res.status, errData);
+          if (attempt < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            continue;
+          }
+          setError('connection');
+          setIsSearching(false);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (!data.translation) {
+          console.error("翻訳結果が不正:", data);
+          if (attempt < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            continue;
+          }
+          setError('connection');
+          setIsSearching(false);
+          return;
+        }
+
+        setTranslationResult(data);
+        setIsSearching(false);
+        return;
+
+      } catch (err) {
+        console.error(`翻訳通信エラー（${attempt}回目）:`, err);
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        } else {
+          setError('connection');
+          setIsSearching(false);
+        }
+      }
     }
   };
 
@@ -381,7 +450,7 @@ export default function App() {
         } : null,
       });
       setIsSearching(false);
-      setError(false);
+      setError(null);
     };
 
     if (document.startViewTransition) {
@@ -631,9 +700,17 @@ export default function App() {
 
             {error && !isSearching && (
               <div className="inner-result fade-in-up">
-                <p className="concept-text">エラー！</p>
-                <h2 className="word-display">Error</h2>
-                <div className="reason-text">データベースとの接続に失敗しました！</div>
+                <p className="concept-text">
+                  {error === 'overload' ? 'サーバー混雑中' : 'エラー！'}
+                </p>
+                <h2 className="word-display">
+                  {error === 'overload' ? 'High Demand' : 'Error'}
+                </h2>
+                <div className="reason-text">
+                  {error === 'overload' && 'AIサーバーが混雑しています。しばらく待ってから再試行してください。'}
+                  {error === 'invalid' && '入力を理解できませんでした。別の表現で試してみてください。'}
+                  {error === 'connection' && 'サーバーとの接続に失敗しました。ネットワークを確認してください。'}
+                </div>
               </div>
             )}
 

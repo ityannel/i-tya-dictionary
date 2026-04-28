@@ -395,10 +395,13 @@ app.post('/api/generate', async (req, res) => {
     // AIが既存概念と判断した場合、DBから該当単語を引いてそのまま返す
     if (aiRes.status === 'existing' && aiRes['root_word.2']) {
       const root = aiRes['root_word.2'];
-      const snap = await db.collection('itya_words')
-        .where('word_noun', '==', root + 'a')
-        .get();
-      if (!snap.empty) {
+      const [snapNoun, snapVerb, snapExt] = await Promise.all([
+        db.collection('itya_words').where('word_noun', '==', root + 'a').get(),
+        db.collection('itya_words').where('word_verb', '==', root + 'i').get(),
+        db.collection('itya_words').where('word_extender', '==', root + 'u').get(),
+      ]);
+      const snap = [snapNoun, snapVerb, snapExt].find(s => !s.empty);
+      if (snap && !snap.empty) {
         const d = snap.docs[0].data();
         return res.json({
           status: 'existing',
@@ -499,7 +502,11 @@ app.post('/api/generate', async (req, res) => {
 
   } catch (error) {
     console.error("エラー！:", error);
-    res.status(500).json({ error: error.message });
+    const isOverload =
+      error.message.includes('503') ||
+      error.message.includes('Service Unavailable') ||
+      error.message.includes('high demand');
+    res.status(isOverload ? 503 : 500).json({ error: error.message });
   }
 });
 
@@ -539,7 +546,9 @@ app.put('/api/words/:wordId', async (req, res) => {
     }
 
     // キャッシュをクリアする
-    cacheDictionary = null; 
+    cacheDictionary = null;
+    wordListCache = null;
+    wordListCacheTime = 0;
     res.json({ message: "更新成功だ！" });
   } catch (error) {
     console.error("更新エラー:", error);
@@ -615,7 +624,11 @@ function validateRoot(root) {
 
   const testWord = root + "a";
 
-  const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
+  if (!root) throw new Error("語幹が空！");
+    const normalizedRoot = root.toLowerCase();
+    const testWord = normalizedRoot + "a";
+    const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
+    if (!ityaRegex.test(testWord)) { ... }
 
   if (!ityaRegex.test(testWord)) {
     throw new Error(`i-tyaの音韻規則に違反しました！不正な子音の連続や無効な文字が含まれています: [${root}]`);
