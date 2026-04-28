@@ -256,10 +256,12 @@ export default function App() {
   };
 
   const executeSearch = async (searchQuery) => {
-    setIsSearching(true);
-    setResult(null);
-    setError(null);
-    setTrivia("トリビアを読み込み中...");
+    safeTransition(() => {
+      setIsSearching(true);
+      setResult(null);
+      setError(null);
+      setTrivia("トリビアを読み込み中...");
+    });
 
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
@@ -359,13 +361,17 @@ export default function App() {
         setIsSearching(false);
       };
 
-      setTrivia(data.trivia || "この概念に関するトリビアはまだないぜ。");
-      finishSearching();
+      safeTransition(() => {
+        setTrivia(data.trivia || "この概念に関するトリビアはまだありません！");
+        finishSearching();
+      });
 
     } catch (err) {
       console.error("通信エラー！", err);
-      setError('connection');
-      setIsSearching(false);
+      safeTransition(() => {
+        setError('connection');
+        setIsSearching(false);
+      });
     }
   };
 
@@ -451,11 +457,7 @@ export default function App() {
     } else {
       setIsTranslateMode(false);
       setTranslationResult(null);
-      if (document.startViewTransition) {
-        document.startViewTransition(() => executeSearch(query));
-      } else {
-        executeSearch(query);
-      }
+      executeSearch(query);
     }
   };
 
@@ -530,6 +532,14 @@ export default function App() {
 
   // 現在のモード表示用（ピルのどちらをアクティブにするか）
   const currentIsTranslate = isTranslateSentence(query);
+
+  const safeTransition = (callback) => {
+  if (document.startViewTransition) {
+    document.startViewTransition(() => { callback(); });
+  } else {
+    callback();
+  }
+};
 
   return (
     <div className="app-container">
