@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, X, ArrowUp, Link, Check, Settings } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -19,7 +18,6 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [activePos, setActivePos] = useState('noun');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminPass, setAdminPass] = useState('');
   const clickCountRef = useRef(0);
   const clickTimerRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -41,7 +39,6 @@ export default function App() {
       executeSearch(q);
     }
   }, []);
-
 
   useEffect(() => {
     let triviaInterval;
@@ -69,6 +66,7 @@ export default function App() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -140,31 +138,40 @@ export default function App() {
   };
 
   const deleteWord = async (id, word) => {
-  if (!window.confirm(`「${word}」をデータベースから抹消していいんだな？`)) return;
-  
-  try {
-    const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: "itya_admin_NT" })
-    });
+    if (!window.confirm(`「${word}」をデータベースから抹消していいんだな？`)) return;
 
-    if (res.ok) {
-      alert("消去！");
-      window.location.reload(); 
-    } else {
-      alert("NO権限");
+    try {
+      const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: "itya_admin_NT" })
+      });
+
+      if (res.ok) {
+        alert("消去！");
+        window.location.reload();
+      } else {
+        alert("NO権限");
+      }
+    } catch (err) {
+      console.error("削除エラー:", err);
     }
-  } catch (err) {
-    console.error("削除エラー:", err);
-  }
-};
+  };
 
-const isTranslateSentence = (text) => {
-  if (mode === 'word') return false;
-  if (mode === 'translate') return true;
-  return /[はをがにでもとやのへからだけまでしかこそさえ。、！？]/.test(text) || text.length >= 10;
-};
+  // 【修正】自動判定の精度向上版
+  const isTranslateSentence = (text) => {
+    if (mode === 'word') return false;
+    if (mode === 'translate') return true;
+
+    // 助詞・句読点
+    if (/[はをがにでもとやのへからだけまでしかこそさえ。、！？]/.test(text)) return true;
+    // 動詞活用形
+    if (/(?:する|した|して|している|しない|できる|できた|なった|ある|ない|いる|です|ます|ました|ません|だった|だろう|でしょう)$/.test(text)) return true;
+    // スペース区切り（複数語）
+    if (/\s/.test(text.trim())) return true;
+    // 10文字以上
+    return text.length >= 10;
+  };
 
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
@@ -176,6 +183,7 @@ const isTranslateSentence = (text) => {
       setIsSearching(false);
       setQuery('');
       setError(false);
+      setMode('auto'); // 【修正】リセット時にモードも戻す
     };
 
     if (!document.startViewTransition) {
@@ -296,7 +304,6 @@ const isTranslateSentence = (text) => {
       };
 
       setTrivia(data.trivia || "この概念に関するトリビアはまだないぜ。");
-
       finishSearching();
 
     } catch (err) {
@@ -347,7 +354,7 @@ const isTranslateSentence = (text) => {
   };
 
   const handleDictionaryClick = (wordData) => {
-    clickedWordIdRef.current = wordData.id; // IDを保存（スクロール位置ではなく）
+    clickedWordIdRef.current = wordData.id;
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     const showDetail = () => {
@@ -415,6 +422,9 @@ const isTranslateSentence = (text) => {
     }
   };
 
+  // 現在のモード表示用（ピルのどちらをアクティブにするか）
+  const currentIsTranslate = isTranslateSentence(query);
+
   const isExpanded = isSearching || result || translationResult || error;
 
   return (
@@ -460,7 +470,7 @@ const isTranslateSentence = (text) => {
               <div className="inner-result fade-in-up">
                 {isEditing ? (
                   <div className="admin-edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
-                    <div style={{color: '#ff4d4d', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center'}}>🔧 管理者データベース編集モード</div>
+                    <div style={{ color: '#ff4d4d', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center' }}>🔧 管理者データベース編集モード</div>
                     <input
                       value={editConcept}
                       onChange={(e) => setEditConcept(e.target.value)}
@@ -505,12 +515,11 @@ const isTranslateSentence = (text) => {
                             [el, el2].forEach(el => {
                               if (el) {
                                 el.style.animation = 'none';
-                                el.offsetHeight; // reflow
+                                el.offsetHeight;
                                 el.style.animation = '';
                               }
                             });
                             setActivePos(e.target.value);
-
                             e.target.blur();
                           }}
                         >
@@ -524,13 +533,13 @@ const isTranslateSentence = (text) => {
                     <h2 className="word-display">
                       {result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
                     </h2>
-                    
+
                     <div className="reason-text">
                       {result.status === 'complexed' || !result.wordData
                         ? result.reason
                         : (activePos === 'noun' ? (result.reason_noun || result.reason)
-                           : activePos === 'verb' ? (result.reason_verb || result.reason)
-                           : (result.reason_extender || result.reason))
+                          : activePos === 'verb' ? (result.reason_verb || result.reason)
+                          : (result.reason_extender || result.reason))
                       }
                     </div>
 
@@ -546,8 +555,8 @@ const isTranslateSentence = (text) => {
                           const currentReason = result.status === 'complexed' || !result.wordData
                             ? result.reason
                             : (activePos === 'noun' ? (result.reason_noun || result.reason)
-                               : activePos === 'verb' ? (result.reason_verb || result.reason)
-                               : (result.reason_extender || result.reason));
+                              : activePos === 'verb' ? (result.reason_verb || result.reason)
+                              : (result.reason_extender || result.reason));
                           setEditConcept(currentConcept || '');
                           setEditReason(currentReason || '');
                         }} style={{ color: '#ff4d4d', borderColor: '#ff4d4d' }}>
@@ -555,7 +564,6 @@ const isTranslateSentence = (text) => {
                         </button>
                       )}
 
-                      {/* コピーボタン */}
                       <button className="index-btn" onClick={() => {
                         const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
                         navigator.clipboard.writeText(url);
@@ -566,7 +574,6 @@ const isTranslateSentence = (text) => {
                         {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
                       </button>
 
-                      {/* X（Twitter）ボタン */}
                       <button className="index-btn" onClick={() => {
                         const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
                         const isNew = result.status === 'new';
@@ -578,7 +585,6 @@ const isTranslateSentence = (text) => {
                         <FontAwesomeIcon icon={faXTwitter} />
                       </button>
                     </div>
-
                   </>
                 )}
               </div>
@@ -590,17 +596,17 @@ const isTranslateSentence = (text) => {
                   {query}
                   <span className="badge-compound">翻訳</span>
                 </div>
-                <h2 className="word-display" style={{fontSize: '2.2rem', lineHeight: '1.4'}}>
+                <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                   {translationResult.translation}
                 </h2>
                 <div className="reason-text">
                   {translationResult.breakdown?.map((item, i) => (
-                    <div key={i} style={{marginBottom: '8px'}}>
-                      <span style={{opacity: 0.6}}>{item.japanese}</span>
+                    <div key={i} style={{ marginBottom: '8px' }}>
+                      <span style={{ opacity: 0.6 }}>{item.japanese}</span>
                       {' → '}
                       <strong>{item.itya}</strong>
                       {item.status === 'new' && (
-                        <span className="badge-new" style={{fontSize: '0.8rem', marginLeft: '6px'}}>新規</span>
+                        <span className="badge-new" style={{ fontSize: '0.8rem', marginLeft: '6px' }}>新規</span>
                       )}
                     </div>
                   ))}
@@ -642,30 +648,34 @@ const isTranslateSentence = (text) => {
           </button>
         </form>
 
+        {/* 【修正】モード切り替えをピルUI化 */}
         {query && !isExpanded && (
           <div className="mode-indicator">
-            <span className="mode-label">
-              {isTranslateSentence(query) ? '📝 翻訳モード' : '🔍 単語モード'}
-            </span>
-            <select
-              className="mode-select"
-              value={mode}
-              onChange={(e) => setMode(e.target.value)}
-            >
-              <option value="auto">自動</option>
-              <option value="word">単語</option>
-              <option value="translate">翻訳</option>
-            </select>
+            <div className="mode-toggle-pill">
+              <button
+                type="button"
+                className={`mode-pill-btn ${!currentIsTranslate ? 'active' : ''}`}
+                onClick={() => setMode('word')}
+              >
+                🔍 単語
+              </button>
+              <button
+                type="button"
+                className={`mode-pill-btn ${currentIsTranslate ? 'active' : ''}`}
+                onClick={() => setMode('translate')}
+              >
+                📝 翻訳
+              </button>
+            </div>
           </div>
         )}
 
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">
             <p className="total-count">{total}語収録中</p>
-            {/* 🚨 isAdmin と onDelete を確実に DictionaryList に渡す！ */}
-            <DictionaryList 
+            <DictionaryList
               onWordClick={handleDictionaryClick}
-              onTotalLoaded={(count) => setTotal(count)} 
+              onTotalLoaded={(count) => setTotal(count)}
               isAdmin={isAdmin}
               onDelete={deleteWord}
             />

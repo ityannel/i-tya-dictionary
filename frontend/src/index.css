@@ -724,34 +724,50 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
   margin-top: -4rem;
   margin-bottom: 1rem;
   padding-right: 100px;
 }
 
-.mode-label {
-  font-size: 0.75rem;
-  color: rgba(112, 255, 112, 0.5);
-}
-
-.mode-select {
-  background: transparent;
-  border: 1px solid rgba(112, 255, 112, 0.3);
+/* ピルUI */
+.mode-toggle-pill {
+  display: flex;
+  background: rgba(112, 255, 112, 0.08);
+  border: 2px solid rgba(112, 255, 112, 0.25);
   border-radius: 999px;
-  color: rgba(112, 255, 112, 0.5);
-  font-size: 0.75rem;
-  font-family: inherit;
-  padding: 2px 8px;
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-  -webkit-appearance: none;
+  padding: 3px;
+  gap: 2px;
 }
 
-.mode-select option {
-  background: rgba(74, 28, 83, 1);
-  color: rgba(112, 255, 112, 1);
+.mode-pill-btn {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: rgba(112, 255, 112, 0.45);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 14px;
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.mode-pill-btn.active {
+  background: rgba(112, 255, 112, 1);
+  color: rgba(74, 28, 83, 1);
+}
+
+.mode-pill-btn:not(.active):hover {
+  color: rgba(112, 255, 112, 0.8);
+  background: rgba(112, 255, 112, 0.12);
+}
+
+.mode-pill-btn:active {
+  transform: scale(0.93);
 }
 
 /*スマホ*/
@@ -907,5 +923,16 @@ body {
 
   .word-card{
     gap: 16px;
+  }
+
+  .mode-indicator {
+    padding-right: 60px;
+    margin-top: -0.8rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .mode-pill-btn {
+    font-size: 0.7rem;
+    padding: 3px 10px;
   }
 }
