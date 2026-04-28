@@ -725,7 +725,9 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 4px 20px 0 0;
+  margin-top: -4rem;
+  margin-bottom: 1rem;
+  padding-right: 100px;
 }
 
 .mode-label {

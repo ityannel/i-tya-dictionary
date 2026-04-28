@@ -409,9 +409,9 @@ app.post('/api/generate', async (req, res) => {
             verb: d.word_verb,
             extender: d.word_extender
           },
-          meaning_noun: existingWord.meaning_noun || "",
-          meaning_verb: existingWord.meaning_verb || "",
-          meaning_extender: existingWord.meaning_extender || "",
+          meaning_noun: d.meaning_noun || "",
+          meaning_verb: d.meaning_verb || "",
+          meaning_extender: d.meaning_extender || "",
           reason_noun: d.reason_noun || d.reason || "解説がありません。",
           reason_verb: d.reason_verb || d.reason || "解説がありません。",
           reason_extender: d.reason_extender || d.reason || "解説がありません。"

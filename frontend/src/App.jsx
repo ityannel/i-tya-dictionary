@@ -415,7 +415,7 @@ const isTranslateSentence = (text) => {
     }
   };
 
-  const isExpanded = isSearching || result || error;
+  const isExpanded = isSearching || result || translationResult || error;
 
   return (
     <div className="app-container">
@@ -435,24 +435,6 @@ const isTranslateSentence = (text) => {
               onChange={(e) => setQuery(e.target.value)}
               disabled={isExpanded}
             />
-
-            {query && !isExpanded && (
-              <div className="mode-indicator">
-                <span className="mode-label">
-                  {isTranslateSentence(query) ? '翻訳' : '単語'}
-                </span>
-                <select
-                  className="mode-select"
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="auto">自動</option>
-                  <option value="word">単語</option>
-                  <option value="translate">翻訳</option>
-                </select>
-              </div>
-            )}
 
             {isSearching && (
               <div className="skeleton-wrapper fade-in-up">
@@ -659,6 +641,23 @@ const isTranslateSentence = (text) => {
             {isExpanded ? <X size={28} strokeWidth={3.5} /> : <Search size={28} strokeWidth={3.5} />}
           </button>
         </form>
+
+        {query && !isExpanded && (
+          <div className="mode-indicator">
+            <span className="mode-label">
+              {isTranslateSentence(query) ? '📝 翻訳モード' : '🔍 単語モード'}
+            </span>
+            <select
+              className="mode-select"
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+            >
+              <option value="auto">自動</option>
+              <option value="word">単語</option>
+              <option value="translate">翻訳</option>
+            </select>
+          </div>
+        )}
 
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">
