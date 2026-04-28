@@ -106,6 +106,14 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const safeTransition = (callback) => {
+    if (document.startViewTransition) {
+      document.startViewTransition(() => { callback(); });
+    } else {
+      callback();
+    }
+  };
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -281,7 +289,6 @@ export default function App() {
         body: JSON.stringify({ concept: searchQuery }),
       });
 
-      // 【修正】ステータスチェックをres.json()より先に行う
       if (res.status === 503) {
         setError('overload');
         setIsSearching(false);
@@ -295,7 +302,6 @@ export default function App() {
         setIsSearching(false);
         return;
       }
-      // サーバーがoverloadをerrorフィールドで返してきた場合も拾う
       if (data.error && (data.error.includes('503') || data.error.includes('high demand') || data.error.includes('混雑'))) {
         setError('overload');
         setIsSearching(false);
@@ -380,84 +386,61 @@ export default function App() {
     setResult(null);
     setError(null);
 
-    const MAX_RETRIES = 4;
-    const RETRY_DELAY_MS = 3000;
+    try {
+      const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentence }),
+      });
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sentence }),
-        });
-
-        // 503（high demand）はリトライ、最終的に失敗したらoverloadエラー
-        if (res.status === 503) {
-          console.warn(`[翻訳] 503 high demand、${attempt}回目リトライ待機中...`);
-          if (attempt < MAX_RETRIES) {
-            await new Promise(r => setTimeout(r, RETRY_DELAY_MS * attempt));
-            continue;
-          } else {
-            setError('overload');
-            setIsSearching(false);
-            return;
-          }
-        }
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          console.error("翻訳APIエラー:", res.status, errData);
-          if (attempt < MAX_RETRIES) {
-            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-            continue;
-          }
-          setError('connection');
-          setIsSearching(false);
-          return;
-        }
-
-        const data = await res.json();
-
-        if (!data.translation) {
-          console.error("翻訳結果が不正:", data);
-          if (attempt < MAX_RETRIES) {
-            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-            continue;
-          }
-          setError('connection');
-          setIsSearching(false);
-          return;
-        }
-
-        setTranslationResult(data);
+      if (res.status === 503) {
+        setError('overload');
         setIsSearching(false);
         return;
-
-      } catch (err) {
-        console.error(`翻訳通信エラー（${attempt}回目）:`, err);
-        if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-        } else {
-          setError('connection');
-          setIsSearching(false);
-        }
       }
+
+      if (!res.ok) {
+        console.error("翻訳APIエラー:", res.status);
+        setError('connection');
+        setIsSearching(false);
+        return;
+      }
+
+      const data = await res.json();
+
+      if (!data.translation) {
+        console.error("翻訳結果が不正:", data);
+        setError('connection');
+        setIsSearching(false);
+        return;
+      }
+
+      setTranslationResult(data);
+      setIsSearching(false);
+
+    } catch (err) {
+      console.error("翻訳通信エラー:", err);
+      setError('connection');
+      setIsSearching(false);
     }
   };
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!query || isSearching) return;
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+    if (!query.trim() || isSearching) return;
+    
     clickedWordIdRef.current = null;
 
-    if (isTranslateSentence(query)) {
+    if (mode === 'translate' || isTranslateSentence(query)) {
       setIsTranslateMode(true);
       setTranslationResult(null);
       executeTranslation(query);
     } else {
       setIsTranslateMode(false);
       setTranslationResult(null);
-      executeSearch(query);
+      safeTransition(() => {
+        executeSearch(query);
+      });
     }
   };
 
@@ -487,6 +470,7 @@ export default function App() {
           verb: wordData.fullData?.word_verb,
           extender: wordData.fullData?.word_extender
         } : null,
+        id: wordData.id
       });
       setIsSearching(false);
       setError(null);
@@ -532,14 +516,6 @@ export default function App() {
 
   // 現在のモード表示用（ピルのどちらをアクティブにするか）
   const currentIsTranslate = isTranslateSentence(query);
-
-  const safeTransition = (callback) => {
-  if (document.startViewTransition) {
-    document.startViewTransition(() => { callback(); });
-  } else {
-    callback();
-  }
-};
 
   return (
     <div className="app-container">

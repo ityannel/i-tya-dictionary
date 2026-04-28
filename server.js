@@ -350,9 +350,10 @@ app.post('/api/generate', async (req, res) => {
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    async function performAiGeneration(concept, maxRetries) {
+    async function performAiGeneration(concept, maxRetries = 3) {
       let currentPrompt = basePrompt;
       let validationFailCount = 0;
+      let apiFailCount = 0;
 
       for (let attempt = 1; attempt <= 10; attempt++) {
         try {
@@ -367,27 +368,36 @@ app.post('/api/generate', async (req, res) => {
           return parsed;
 
         } catch (err) {
-          const isApiError = err.message.includes("503") || err.message.includes("Service Unavailable");
+          const isApiError = err.message.includes("503") || err.message.includes("Service Unavailable") || err.message.includes("high demand") || err.message.includes("429");
 
-          if (!isApiError) {
+          if (isApiError) {
+            apiFailCount++;
+            const waitTimeForApi = Math.pow(2, apiFailCount) * 1000; 
+
+            if (waitTimeForApi >= 8000) {
+              console.error(`[ERROR] 待機時間が${waitTimeForApi/1000}秒に達するため、生成を強制中止！`);
+              throw new Error("High Demand Timeout"); 
+            }
+            
+            console.warn(`[WARN] サーバー混雑中（503）。${waitTimeForApi/1000}秒待機してリトライします。`);
+            await new Promise(r => setTimeout(r, waitTimeForApi));
+
+          } else {
             validationFailCount++;
             console.warn(`[WARN] ルール違反（${validationFailCount}回目）: ${err.message}`);
-          } else {
-            console.warn(`[WARN] サーバー混雑中（503）。リトライを継続します。`);
-          }
-
-          if (validationFailCount >= maxRetries) {
-            throw new Error(`AIが${maxRetries}回連続でミス！`);
-          }
-
-          const waitTime = Math.pow(2, Math.min(attempt, 5)) * 1000;
-          console.log(`[LOG] ${waitTime / 1000}秒待機して再開`);
-          await new Promise(r => setTimeout(r, waitTime));
-          if (!isApiError) {
+            
+            if (validationFailCount >= maxRetries) {
+              throw new Error(`AIが${maxRetries}回連続でミス！`);
+            }
+            
+            await new Promise(r => setTimeout(r, 1000));
+            
             currentPrompt = basePrompt + `\n\n【警告】前回「${err.message}」というミスをしました！気を付けてくださいね。`;
           }
         }
       }
+      
+      throw new Error("予期せぬエラーで試行上限に達しました");
     }
     const maxAttempts = 3;
     aiRes = await performAiGeneration(concept, maxAttempts);
