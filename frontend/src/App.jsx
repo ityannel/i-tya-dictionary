@@ -33,6 +33,8 @@ export default function App() {
   const [displayIconType, setDisplayIconType] = useState('search');
   const [errorMessage, setErrorMessage] = useState('');
   const [error, setError] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(''); 
+  const [loadingStep, setLoadingStep] = useState(0);
 
   let consecutiveFailures = 0;
   let aiBlockUntil = 0;
@@ -404,7 +406,9 @@ export default function App() {
       });
 
       if (res.status === 503) {
+        const errData = await res.json().catch(() => ({}));
         setError('overload');
+        setErrorMessage(errData.error || '');
         setIsSearching(false);
         return;
       }
@@ -781,14 +785,12 @@ export default function App() {
               }
             }}
             
-            // 🚨 スマホ長押しメニュー殺し
             style={{
               userSelect: 'none',
               WebkitTouchCallout: 'none',
               WebkitUserSelect: 'none'
             }}
           >
-            {/* 💡 ココだ！ spanで囲んでポップアニメーションを当てる！ */}
             <span style={{
               display: 'flex',
               alignItems: 'center',
@@ -798,7 +800,7 @@ export default function App() {
                 ? 'transform 0.15s ease-in' 
                 : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
             }}>
-              {/* displayIconType の状態に合わせて、Lucideアイコンを出し分ける！ */}
+
               {displayIconType === 'x' && <X size={28} strokeWidth={3.5} />}
               {displayIconType === 'translate' && <Languages size={28} strokeWidth={2} />}
               {displayIconType === 'search' && <Search size={28} strokeWidth={3.5} />}
