@@ -519,7 +519,6 @@ app.put('/api/words/:wordId', async (req, res) => {
   }
 
   try {
-    // itya_words か itya_complex か分からないから、両方探しに行く泥臭いやり方だ！
     let docRef = db.collection('itya_words').doc(wordId);
     let doc = await docRef.get();
     
@@ -625,11 +624,9 @@ function validateRoot(root) {
   const testWord = root + "a";
 
   if (!root) throw new Error("語幹が空！");
-    const normalizedRoot = root.toLowerCase();
-    const testWord = normalizedRoot + "a";
-    const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
-    if (!ityaRegex.test(testWord)) { ... }
-
+  const normalizedRoot = root.toLowerCase();
+  const testWord = normalizedRoot + "a";
+  const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
   if (!ityaRegex.test(testWord)) {
     throw new Error(`i-tyaの音韻規則に違反しました！不正な子音の連続や無効な文字が含まれています: [${root}]`);
   }
