@@ -280,6 +280,13 @@ let wordListCacheTime = 0;
 const WORD_LIST_CACHE_DURATION = 60 * 60 * 1000;
 
 app.post('/api/generate', async (req, res) => {
+  if (Date.now() < aiBlockUntil) {
+    const remainingSeconds = Math.ceil((aiBlockUntil - Date.now()) / 1000);
+    console.warn(`[BLOCK] AIは現在冷却中です。残り${remainingSeconds}秒`);
+    return res.status(503).json({ 
+      error: `サーバーが限界を超えました！システム保護のため、あと${remainingSeconds}秒間AIを停止しています。` 
+    });
+  }
   const { concept } = req.body;
 
   if (!concept) {
@@ -351,6 +358,7 @@ app.post('/api/generate', async (req, res) => {
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     async function performAiGeneration(concept, maxRetries = 3) {
+      
       let currentPrompt = basePrompt;
       let validationFailCount = 0;
       let apiFailCount = 0;
@@ -365,6 +373,8 @@ app.post('/api/generate', async (req, res) => {
           if (parsed.root) parsed.root = parsed.root.toLowerCase();
           if (parsed.status === 'new') validateRoot(parsed.root);
 
+          consecutiveFailures = 0;
+
           return parsed;
 
         } catch (err) {
@@ -375,12 +385,24 @@ app.post('/api/generate', async (req, res) => {
             const waitTimeForApi = Math.pow(2, apiFailCount) * 1000; 
 
             if (waitTimeForApi >= 8000) {
+              consecutiveFailures++;
+              console.error(`[ERROR] 待機時間オーバー！連続失敗回数: ${consecutiveFailures}`);
+              if (consecutiveFailures >= 3) {
+                console.error(`💥 致命的エラー連発！サーキットブレーカー発動！${BLOCK_DURATION_MS/60000}分間停止します！`);
+                aiBlockUntil = Date.now() + BLOCK_DURATION_MS;
+              }
+
+              throw new Error("High Demand Timeout"); 
+            }
+
+            if (waitTimeForApi >= 8000) {
               console.error(`[ERROR] 待機時間が${waitTimeForApi/1000}秒に達するため、生成を強制中止！`);
               throw new Error("High Demand Timeout"); 
             }
             
             console.warn(`[WARN] サーバー混雑中（503）。${waitTimeForApi/1000}秒待機してリトライします。`);
             await new Promise(r => setTimeout(r, waitTimeForApi));
+            
 
           } else {
             validationFailCount++;
@@ -756,6 +778,13 @@ const translateModel = genAI.getGenerativeModel({
 });
 
 app.post('/api/translate', async (req, res) => {
+  if (Date.now() < aiBlockUntil) {
+    const remainingSeconds = Math.ceil((aiBlockUntil - Date.now()) / 1000);
+    console.warn(`[BLOCK] AIは現在冷却中です。残り${remainingSeconds}秒`);
+    return res.status(503).json({ 
+      error: `サーバーが限界を超えました！システム保護のため、あと${remainingSeconds}秒間AIを停止しています。` 
+    });
+  }
   const { sentence } = req.body;
   if (!sentence) return res.status(400).json({ error: "文章が空！" });
 
