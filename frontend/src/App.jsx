@@ -475,6 +475,8 @@ export default function App() {
                               }
                             });
                             setActivePos(e.target.value);
+
+                            e.target.blur();
                           }}
                         >
                           <option value="noun">名詞</option>
