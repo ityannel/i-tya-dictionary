@@ -63,8 +63,8 @@ const ityaRules = `
 {
   "status": "new",
   "meaning_noun": "（名詞形の日本語表現。例：「走ること、走り」）",
-"meaning_verb": "（動詞形の日本語表現。例：「走る」）",
-"meaning_extender": "（拡張詞形の日本語表現。例：「走っている、走るような」）",
+  "meaning_verb": "（動詞形の日本語表現。例：「走る」）",
+  "meaning_extender": "（拡張詞形の日本語表現。例：「走っている、走るような」）",
   "part_of_speech": "noun | verb | extender",
   "root": "（語末に母音を含まない語幹を出力すること。語末の母音については、システム側で適当につけるため、必要ありません。）",
   "reason_noun": "【意味】\n（名詞としての意味）\n\n【詞型の展開】\n（名詞の場合の使われ方）\n\n【語源・由来】\n（由来）",
@@ -647,6 +647,168 @@ function sortItyaWords(a, b) {
 let cacheDictionary = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 60 * 60 * 1000;
+
+// ここからさきは翻訳モードですよ
+const translateRules = `
+あなたはi-tya言語の翻訳コンパイラだ。日本語文章をi-tya語に翻訳し、JSONのみ出力せよ。
+
+【i-tya基本ルール】
+音韻: 母音(a,i,u)、子音(h,k,l,m,n,p,s,t)、半母音(w,y)。音節構造(C)(G)V。子音終わり禁止。
+品詞: -a=名詞、-i=動詞、-u=拡張詞。語末母音で一意に決まる。兼任不可。
+
+【文法の核心：後置修飾】
+i-tyaは完全な後置修飾言語だ。直前のブロック全体に対して後ろの要素が修飾する。
+文章全体は「修飾を重ねた一つの巨大な名詞句」と考えよ。
+語順の基本はSV型。主語（-a）→動詞（-i）→その他修飾の順。
+重要な情報・確定させたい情報を先に置き、補足を後から加える。
+
+【時制】
+未確定時制（何もつけない）: 現在・未来・習慣・普遍的真理。変化する余地がある事象。
+確定時制（nu）: 過去・完了。いかなる手段でも変更不可能な確定した事実。
+例: Ma pati lamena nu.（私はラーメンを食べた）
+nuの位置で確定範囲が変わる:
+  Ma pati nu lamena. → 「食べた」という事実を強調
+  Ma pati lamena nu. → 「ラーメンを食べる」という行為全体が確定
+
+【否定】
+hu（否定拡張詞）を挿入。huの位置で否定範囲が変わる。
+  Ma pati lamena hu. → ラーメンを食べない
+  Ma hu pati lamena. → 食べるという行為全体を否定
+
+【疑問】
+文末にnyu（疑問拡張詞）を配置。倒置なし。
+nyuの位置で質問の焦点が変わる。
+  Pa pati lamena nu nyu? → ラーメンを食べましたか？
+  Pa nyu pati lamena nu? → "あなた"が食べましたか？
+疑問詞: a=何/誰、a su=どこ、a tyu=いつ、a syu=なぜ、a tu=どうやって、i=何をした
+
+【格拡張詞（助詞に相当）】
+ku=～へ（方向・到達点）: Ma soti Nyuyoka ku nu.（私はNYへ行った）
+mu=～から/の（起点・所属）: Ma soti Hakotatea mu nu.（私は函館から来た）
+su=～で/に（空間・時間）: Ma pati habaga Nyuyoka su nu.（NYでハンバーガーを食べた）
+tu=～で/を使って（手段・道具）: Ma pati habaga syuka tu nu.（手でハンバーガーを食べた）
+
+【接続詞拡張詞（先行文の末尾に置く）】
+pu=そして（付加・両方成立）: Ma pati patu pu, ma shakiti kata.
+pyu=または（選択・どちらか一方）
+syu=だから（確定した因果）: Ma pati nu syu, ma petati.
+yu=もし～なら（未確定の条件）: Pa pati lamena yu, pa petati.
+
+
+文頭は大文字。固有名詞の語頭は大文字。文章終了時に「.」疑問文は「?」感嘆文は「!」。文章の切れ目では「,」
+
+【レベル1既定語（レベル1については新語生成禁止です。）】
+人称: ma=私、pa=あなた、na=彼/彼女/それ
+指示: sa=これ、la=あれ
+場所・概念: wa=空間/場所、ya=事実、swa=言葉/記号、kya=道/方向
+時間: pwa=前、mwa=後
+時制・否定・疑問: nu=完了、hu=否定、nyu=疑問
+格: ku=～へ、mu=～から/の、su=～で/に、tu=手段
+接続: pu=そして、pyu=または、syu=だから、yu=もし
+その他: myu=進行中、kyu=～たち(複数)、lu=数字prefix
+
+【新語生成ルール】
+rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であってはならない。
+既存リストを必ず確認し、類似概念があればそれを使え。
+
+【出力フォーマット】
+{
+  "translation": "完成したi-tya語文章",
+  "breakdown": [
+    {
+      "japanese": "日本語の要素",
+      "itya": "対応するi-tya語",
+      "status": "existing | new | grammar",
+      "root": "新語の場合のみ語幹（末尾母音なし）",
+      "meaning_noun": "新語の場合のみ",
+      "meaning_verb": "新語の場合のみ",
+      "meaning_extender": "新語の場合のみ",
+      "reason_noun": "新語の場合のみ【意味】【詞型の展開】【語源・由来】",
+      "reason_verb": "新語の場合のみ【意味】【詞型の展開】",
+      "reason_extender": "新語の場合のみ【意味】【詞型の展開】"
+    }
+  ]
+}
+`;
+
+const translateModel = genAI.getGenerativeModel({ 
+  model: "gemini-3.1-pro-preview", 
+  systemInstruction: translateRules 
+});
+
+app.post('/api/translate', async (req, res) => {
+  const { sentence } = req.body;
+  if (!sentence) return res.status(400).json({ error: "文章が空！" });
+
+  try {
+    // キャッシュを使い回す（Firestoreへの追加Readなし）
+    if (!wordListCache || (Date.now() - wordListCacheTime) > WORD_LIST_CACHE_DURATION) {
+      const allWords = await db.collection('itya_words').get();
+      wordListCache = allWords.docs;
+      wordListCacheTime = Date.now();
+    }
+
+    const checkListStr = wordListCache.map(doc => {
+      const d = doc.data();
+      const w = d.word_noun || d.word_verb || d.word_extender;
+      if (!w) return "";
+      const root = w.length <= 2 ? w : w.slice(0, -1);
+      return `${d.concept_ja || d.meaning}: ${root}`;
+    }).filter(Boolean).join(', ');
+
+    const prompt = `
+      文章: 「${sentence}」
+      既存リスト: ${checkListStr}
+      上記リストを最大限活用し、翻訳せよ。
+    `;
+
+    const result = await translateModel.generateContent(prompt);
+    const text = result.response.text().replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(text);
+
+    // 新語をまとめてバッチ保存
+    const batch = db.batch();
+    let hasNewWords = false;
+
+    for (const item of parsed.breakdown || []) {
+      if (item.status === 'new' && item.root) {
+        try {
+          validateRoot(item.root);
+          const newDoc = db.collection('itya_words').doc();
+          batch.set(newDoc, {
+            concept_ja: item.japanese,
+            meaning_noun: item.meaning_noun || "",
+            meaning_verb: item.meaning_verb || "",
+            meaning_extender: item.meaning_extender || "",
+            word_noun: item.root + "a",
+            word_verb: item.root + "i",
+            word_extender: item.root + "u",
+            reason_noun: "",
+            reason_verb: "",
+            reason_extender: "",
+            level: 2,
+            created_at: admin.firestore.FieldValue.serverTimestamp()
+          });
+          hasNewWords = true;
+        } catch (e) {
+          console.warn(`[WARN] 翻訳新語の語幹エラー: ${item.root} - ${e.message}`);
+        }
+      }
+    }
+
+    if (hasNewWords) {
+      await batch.commit();
+      cacheDictionary = null;
+      lastFetchTime = 0;
+      wordListCache = null; // 新語追加後はwordListキャッシュもリセット
+    }
+
+    res.json(parsed);
+  } catch (error) {
+    console.error("翻訳エラー:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get('/api/dictionary', async (req, res) => {
   try {

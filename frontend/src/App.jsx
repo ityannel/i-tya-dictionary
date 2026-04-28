@@ -25,6 +25,9 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [editConcept, setEditConcept] = useState('');
   const [editReason, setEditReason] = useState('');
+  const [mode, setMode] = useState('auto');
+  const [isTranslateMode, setIsTranslateMode] = useState(false);
+  const [translationResult, setTranslationResult] = useState(null);
 
   const hasSearchedFromUrl = useRef(false);
 
@@ -157,11 +160,19 @@ export default function App() {
   }
 };
 
+const isTranslateSentence = (text) => {
+  if (mode === 'word') return false;
+  if (mode === 'translate') return true;
+  return /[はをがにでもとやのへからだけまでしかこそさえ。、！？]/.test(text) || text.length >= 10;
+};
+
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
 
     const doReset = () => {
       setResult(null);
+      setTranslationResult(null);
+      setIsTranslateMode(false);
       setIsSearching(false);
       setQuery('');
       setError(false);
@@ -295,16 +306,43 @@ export default function App() {
     }
   };
 
+  const executeTranslation = async (sentence) => {
+    setIsSearching(true);
+    setResult(null);
+    setError(false);
+
+    try {
+      const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentence }),
+      });
+      const data = await res.json();
+      setTranslationResult(data);
+    } catch (err) {
+      setError(true);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!query || isSearching) return;
     clickedWordIdRef.current = null;
-    if (document.startViewTransition) {
-      document.startViewTransition(() => {
-        executeSearch(query);
-      });
+
+    if (isTranslateSentence(query)) {
+      setIsTranslateMode(true);
+      setTranslationResult(null);
+      executeTranslation(query);
     } else {
-      executeSearch(query);
+      setIsTranslateMode(false);
+      setTranslationResult(null);
+      if (document.startViewTransition) {
+        document.startViewTransition(() => executeSearch(query));
+      } else {
+        executeSearch(query);
+      }
     }
   };
 
@@ -398,6 +436,24 @@ export default function App() {
               disabled={isExpanded}
             />
 
+            {query && !isExpanded && (
+              <div className="mode-indicator">
+                <span className="mode-label">
+                  {isTranslateSentence(query) ? '翻訳' : '単語'}
+                </span>
+                <select
+                  className="mode-select"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="auto">自動</option>
+                  <option value="word">単語</option>
+                  <option value="translate">翻訳</option>
+                </select>
+              </div>
+            )}
+
             {isSearching && (
               <div className="skeleton-wrapper fade-in-up">
                 <p className="searching-text">
@@ -420,8 +476,6 @@ export default function App() {
 
             {result && !isSearching && !error && (
               <div className="inner-result fade-in-up">
-                
-                {/* 🚨 isEditing が true なら編集フォームを表示 */}
                 {isEditing ? (
                   <div className="admin-edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                     <div style={{color: '#ff4d4d', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center'}}>🔧 管理者データベース編集モード</div>
@@ -447,7 +501,6 @@ export default function App() {
                     </div>
                   </div>
                 ) : (
-                  /* 🚨 isEditing が false なら通常の単語表示 */
                   <>
                     <div className="concept-header">
                       <div className="concept-text">
@@ -499,10 +552,7 @@ export default function App() {
                       }
                     </div>
 
-                    {/* 🚨 シェアボタン群（ここに編集ボタンも並べる！） */}
                     <div className="share-buttons">
-                      
-                      {/* 管理者の時だけ表示される赤い編集ボタン */}
                       {isAdmin && (
                         <button className="index-btn admin-btn" onClick={() => {
                           setIsEditing(true);
@@ -549,6 +599,45 @@ export default function App() {
 
                   </>
                 )}
+              </div>
+            )}
+
+            {translationResult && !isSearching && !error && (
+              <div className="inner-result fade-in-up">
+                <div className="concept-text">
+                  {query}
+                  <span className="badge-compound">翻訳</span>
+                </div>
+                <h2 className="word-display" style={{fontSize: '2.2rem', lineHeight: '1.4'}}>
+                  {translationResult.translation}
+                </h2>
+                <div className="reason-text">
+                  {translationResult.breakdown?.map((item, i) => (
+                    <div key={i} style={{marginBottom: '8px'}}>
+                      <span style={{opacity: 0.6}}>{item.japanese}</span>
+                      {' → '}
+                      <strong>{item.itya}</strong>
+                      {item.status === 'new' && (
+                        <span className="badge-new" style={{fontSize: '0.8rem', marginLeft: '6px'}}>新規</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="share-buttons">
+                  <button className="index-btn" onClick={() => {
+                    navigator.clipboard.writeText(translationResult.translation);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}>
+                    {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
+                  </button>
+                  <button className="index-btn" onClick={() => {
+                    const text = `「${query}」をi-tyaに翻訳しました！\n「${translationResult.translation}」\n\n#i_tya #NT函館`;
+                    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+                  }}>
+                    <FontAwesomeIcon icon={faXTwitter} />
+                  </button>
+                </div>
               </div>
             )}
 

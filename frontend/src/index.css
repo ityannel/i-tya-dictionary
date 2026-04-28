@@ -720,6 +720,38 @@ body {
   min-height: 200px;
 }
 
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 4px 20px 0 0;
+}
+
+.mode-label {
+  font-size: 0.75rem;
+  color: rgba(112, 255, 112, 0.5);
+}
+
+.mode-select {
+  background: transparent;
+  border: 1px solid rgba(112, 255, 112, 0.3);
+  border-radius: 999px;
+  color: rgba(112, 255, 112, 0.5);
+  font-size: 0.75rem;
+  font-family: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.mode-select option {
+  background: rgba(74, 28, 83, 1);
+  color: rgba(112, 255, 112, 1);
+}
+
 /*スマホ*/
 @media (max-width: 768px) {
   .word-itya{
