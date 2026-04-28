@@ -32,14 +32,6 @@ export default function App() {
   const [iconScale, setIconScale] = useState(1);
   const [displayIconType, setDisplayIconType] = useState('search');
   const [errorMessage, setErrorMessage] = useState('');
-  const [error, setError] = useState(null);
-  const [errorMessage, setErrorMessage] = useState(''); 
-  const [loadingStep, setLoadingStep] = useState(0);
-
-  let consecutiveFailures = 0;
-  let aiBlockUntil = 0;
-  const BLOCK_DURATION_MS = 3 * 60 * 1000;
-
   
   const isExpanded = isSearching || result || translationResult || error;
 

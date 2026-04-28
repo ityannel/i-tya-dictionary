@@ -5,8 +5,12 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const admin = require('firebase-admin');
 
+
+let consecutiveFailures = 0;
+let aiBlockUntil = 0;
+const BLOCK_DURATION_MS = 3 * 60 * 1000;
+
 const serviceAccount = require('./serviceAccountKey.json');
-const { parse } = require('dotenv');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
