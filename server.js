@@ -202,6 +202,14 @@ db.settings({ ignoreUndefinedProperties: true });
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your_secret_password";
 
+// ─── ミドルウェア設定（全ルートの前に置くこと） ───
+app.use(express.json());
+app.use(cors({
+  origin: ['https://i-tya-dictionary.vercel.app'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+}));
+
 app.post('/api/trivias', async (req, res) => {
   const { content, password } = req.body;
   if (password !== ADMIN_PASSWORD) {

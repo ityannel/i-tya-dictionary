@@ -1,15 +1,245 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp, Link, Check, Settings, Languages} from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check, Settings, Languages, Lock, Eye, EyeOff, ShieldCheck, AlertTriangle, WifiOff, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
 import DictionaryList from './DictionaryList';
 
+// ─── 管理者ログインモーダル ───
+function AdminLoginModal({ onClose, onSuccess }) {
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [shake, setShake] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch('https://i-tya-dictionary.onrender.com/api/admin/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        onSuccess(password);
+      } else {
+        setShake(true);
+        setPassword('');
+        setTimeout(() => setShake(false), 500);
+      }
+    } catch {
+      setShake(true);
+      setPassword('');
+      setTimeout(() => setShake(false), 500);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.7)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '20px',
+        animation: 'fadeIn 0.2s ease'
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        style={{
+          background: 'var(--color-card, #1a0d2e)',
+          border: '1px solid rgba(112,255,112,0.3)',
+          borderRadius: '16px',
+          padding: '32px 28px',
+          width: '100%',
+          maxWidth: '360px',
+          boxShadow: '0 0 60px rgba(112,255,112,0.15)',
+          animation: shake ? 'shake 0.4s ease' : 'slideUp 0.25s ease',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+          <div style={{
+            width: '40px', height: '40px',
+            background: 'rgba(112,255,112,0.1)',
+            border: '1px solid rgba(112,255,112,0.4)',
+            borderRadius: '10px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#70ff70'
+          }}>
+            <Lock size={18} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-text, #fff)' }}>管理者認証</div>
+            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>パスワードを入力してください</div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              marginLeft: 'auto', background: 'none', border: 'none',
+              color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px',
+              borderRadius: '6px', transition: 'color 0.2s'
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
+          <div style={{ position: 'relative', marginBottom: '16px' }}>
+            <input
+              ref={inputRef}
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="パスワード"
+              style={{
+                width: '100%',
+                padding: '12px 44px 12px 16px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '10px',
+                color: 'var(--color-text, #fff)',
+                fontSize: '1rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+                fontFamily: 'inherit',
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'rgba(112,255,112,0.6)'}
+              onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.15)'}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'rgba(255,255,255,0.4)', padding: '4px',
+                transition: 'color 0.2s'
+              }}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading || !password.trim()}
+            style={{
+              width: '100%', padding: '12px',
+              background: isLoading || !password.trim()
+                ? 'rgba(112,255,112,0.2)'
+                : 'rgba(112,255,112,0.9)',
+              border: '1px solid rgba(112,255,112,0.5)',
+              borderRadius: '10px',
+              color: isLoading || !password.trim() ? 'rgba(255,255,255,0.4)' : '#0a0a0a',
+              fontWeight: 700, fontSize: '0.95rem',
+              cursor: isLoading || !password.trim() ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              fontFamily: 'inherit',
+            }}
+          >
+            {isLoading ? (
+              <>
+                <span style={{ width: '16px', height: '16px', border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#0a0a0a', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                認証中...
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={16} />
+                認証する
+              </>
+            )}
+          </button>
+        </form>
+
+        <style>{`
+          @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+          @keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+          @keyframes shake {
+            0%, 100% { transform: translateX(0) }
+            20% { transform: translateX(-8px) }
+            40% { transform: translateX(8px) }
+            60% { transform: translateX(-6px) }
+            80% { transform: translateX(6px) }
+          }
+          @keyframes spin { to { transform: rotate(360deg) } }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+// ─── エラー表示コンポーネント ───
+function ErrorDisplay({ error, errorMessage }) {
+  const config = {
+    overload: {
+      icon: <Zap size={40} strokeWidth={1.5} />,
+      label: 'サーバー保護中！',
+      title: 'SYSTEM OVERLOAD',
+      message: errorMessage || 'AIサーバーが混雑しています。しばらく待ってから再試行してください。',
+      accent: '#ff9f43',
+    },
+    invalid: {
+      icon: <AlertTriangle size={40} strokeWidth={1.5} />,
+      label: 'エラー！',
+      title: '入力エラー',
+      message: '入力を理解できませんでした。別の表現で試してみてください。',
+      accent: '#ff6b6b',
+    },
+    connection: {
+      icon: <WifiOff size={40} strokeWidth={1.5} />,
+      label: 'エラー！',
+      title: '接続失敗',
+      message: 'サーバーとの接続に失敗しました。ネットワークを確認してください。',
+      accent: '#ff6b6b',
+    },
+  };
+
+  const cfg = config[error] || config.connection;
+
+  return (
+    <div className="inner-result fade-in-up">
+      <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+        <div style={{
+          color: cfg.accent,
+          marginBottom: '12px',
+          opacity: 0.85,
+        }}>
+          {cfg.icon}
+        </div>
+        <p className="concept-text" style={{ color: cfg.accent, marginBottom: '4px' }}>{cfg.label}</p>
+        <h2 className="word-display" style={{ fontSize: '2rem', color: cfg.accent }}>
+          {cfg.title}
+        </h2>
+        <div className="reason-text" style={{ marginTop: '12px' }}>
+          {cfg.message}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── メインアプリ ───
 export default function App() {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState(null);
-  const [error, setError] = useState(null); // null | 'overload' | 'invalid' | 'connection'
+  const [error, setError] = useState(null);
   const [loadingStep, setLoadingStep] = useState(0);
   const [trivia, setTrivia] = useState('');
   const [showTopBtn, setShowTopBtn] = useState(false);
@@ -19,6 +249,7 @@ export default function App() {
   const [activePos, setActivePos] = useState('noun');
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const clickCountRef = useRef(0);
   const clickTimerRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -33,7 +264,7 @@ export default function App() {
   const [iconScale, setIconScale] = useState(1);
   const [displayIconType, setDisplayIconType] = useState('search');
   const [errorMessage, setErrorMessage] = useState('');
-  
+
   const isExpanded = isSearching || result || translationResult || error;
 
   const handleTouchStart = () => {
@@ -41,7 +272,7 @@ export default function App() {
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
       setMode(prev => prev === 'translate' ? 'word' : 'translate');
-      if (navigator.vibrate) navigator.vibrate(50); 
+      if (navigator.vibrate) navigator.vibrate(50);
     }, 500);
   };
 
@@ -61,24 +292,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-  let targetIcon = 'search';
-  if (isExpanded) {
-    targetIcon = 'x';
-  } else if (mode === 'translate') {
-    targetIcon = 'translate';
-  }
+    let targetIcon = 'search';
+    if (isExpanded) {
+      targetIcon = 'x';
+    } else if (mode === 'translate') {
+      targetIcon = 'translate';
+    }
 
-  if (displayIconType !== targetIcon) {
-    setIconScale(0); // シュッと縮む
-    
-    const timer = setTimeout(() => {
-      setDisplayIconType(targetIcon);
-      setIconScale(1); // ボヨーンと戻る
-    }, 150);
-
-    return () => clearTimeout(timer);
-  }
-}, [isExpanded, mode, displayIconType]);
+    if (displayIconType !== targetIcon) {
+      setIconScale(0);
+      const timer = setTimeout(() => {
+        setDisplayIconType(targetIcon);
+        setIconScale(1);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isExpanded, mode, displayIconType]);
 
   useEffect(() => {
     let triviaInterval;
@@ -100,9 +329,7 @@ export default function App() {
   }, [isSearching]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setShowTopBtn(window.scrollY > 300);
-    };
+    const handleScroll = () => setShowTopBtn(window.scrollY > 300);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -115,21 +342,11 @@ export default function App() {
     }
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const loadingMessages = isTranslateMode
-    ? [
-        "をi-tyaに翻訳中...",
-        "の文法構造を解析中...",
-        "の単語を照合中..."
-      ]
-    : [
-        "をデータベースから検索中...",
-        "の統語構造を分析中...",
-        "の説明を生成中..."
-      ];
+    ? ["をi-tyaに翻訳中...", "の文法構造を解析中...", "の単語を照合中..."]
+    : ["をデータベースから検索中...", "の統語構造を分析中...", "の説明を生成中..."];
 
   useEffect(() => {
     let interval;
@@ -142,29 +359,16 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isSearching, isTranslateMode]);
 
+  // タイトルを5回クリックでモーダルを表示
   const handleTitleClick = () => {
     clickCountRef.current += 1;
 
     if (clickCountRef.current === 5) {
-      const pass = prompt("管理者パスワードを入力してください：");
-      if (pass) {
-        // パスワードをサーバー側で検証する（フロントにハードコードしない）
-        fetch('https://i-tya-dictionary.onrender.com/api/admin/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pass })
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.ok) {
-              setIsAdmin(true);
-              setAdminPassword(pass);
-              alert("管理者権限を承認しました！");
-            } else {
-              alert("誰だお前は！");
-            }
-          })
-          .catch(() => alert("サーバーとの接続に失敗しました。"));
+      if (!isAdmin) {
+        setShowAdminModal(true);
+      } else {
+        setIsAdmin(false);
+        setAdminPassword('');
       }
       clickCountRef.current = 0;
     }
@@ -175,12 +379,17 @@ export default function App() {
     }, 1000);
   };
 
+  const handleAdminSuccess = (pass) => {
+    setIsAdmin(true);
+    setAdminPassword(pass);
+    setShowAdminModal(false);
+  };
+
   const saveEdit = async () => {
     if (!result.id) {
       alert("ドキュメントIDがねえから更新できません！");
       return;
     }
-
     try {
       const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${result.id}`, {
         method: 'PUT',
@@ -191,7 +400,6 @@ export default function App() {
           reason: editReason
         })
       });
-
       if (res.ok) {
         alert("編集完了");
         setResult({ ...result, concept: editConcept, reason: editReason });
@@ -206,14 +414,12 @@ export default function App() {
 
   const deleteWord = async (id, word) => {
     if (!window.confirm(`「${word}」をデータベースから抹消していいんだな？`)) return;
-
     try {
       const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: adminPassword })
       });
-
       if (res.ok) {
         alert("消去！");
         window.location.reload();
@@ -228,19 +434,14 @@ export default function App() {
   const isTranslateSentence = (text) => {
     const t = text.trim();
     if (!t) return false;
-
     if (/[。、！？\s]/.test(t)) return true;
-
     if (/(?:する|した|して|している|しない|できる|できた|なった|ある|ない|いる|です|ます|ました|ません|だった|だろう|でしょう|ください|なさい|たい|させる|られる)$/.test(t)) return true;
-
     if (/[をにがへでと][ぁ-ん一-龥a-zA-Z]+[うくぐすつぬぶむるただ]$/.test(t)) return true;
-
     return t.length >= 12;
   };
 
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
-
     const doReset = () => {
       setResult(null);
       setTranslationResult(null);
@@ -357,8 +558,7 @@ export default function App() {
 
         if (finalStatus === "new") {
           const effects = ["confetti", "stars", "fireworks"];
-          const randomEffects = effects[Math.floor(Math.random() * effects.length)];
-          triggerCelebration(randomEffects);
+          triggerCelebration(effects[Math.floor(Math.random() * effects.length)]);
         }
 
         setResult({
@@ -422,7 +622,6 @@ export default function App() {
       }
 
       if (!res.ok) {
-        console.error("翻訳APIエラー:", res.status);
         setError('connection');
         setIsSearching(false);
         return;
@@ -431,7 +630,6 @@ export default function App() {
       const data = await res.json();
 
       if (!data.translation) {
-        console.error("翻訳結果が不正:", data);
         setError('connection');
         setIsSearching(false);
         return;
@@ -452,9 +650,7 @@ export default function App() {
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     if (!query.trim() || isSearching) return;
-    
     clickedWordIdRef.current = null;
-
     if (mode === 'translate' || isTranslateSentence(query)) {
       setIsTranslateMode(true);
       setTranslationResult(null);
@@ -462,9 +658,7 @@ export default function App() {
     } else {
       setIsTranslateMode(false);
       setTranslationResult(null);
-      safeTransition(() => {
-        executeSearch(query);
-      });
+      safeTransition(() => { executeSearch(query); });
     }
   };
 
@@ -512,12 +706,7 @@ export default function App() {
     const end = Date.now() + duration;
 
     if (type === 'confetti') {
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#70ff70', '#ffffff', '#4a1c53']
-      });
+      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#70ff70', '#ffffff', '#4a1c53'] });
     } else if (type === 'stars') {
       const defaults = { spread: 360, ticks: 50, gravity: 0, decay: 0.94, startVelocity: 30, colors: ['FFE400', 'FFBD00', 'E89400', 'FFCA6C', 'FDFFB8'] };
       const shoot = () => {
@@ -531,20 +720,54 @@ export default function App() {
       (function frame() {
         confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#70ff70'] });
         confetti({ particleCount: 2, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ffffff'] });
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        }
+        if (Date.now() < end) requestAnimationFrame(frame);
       }());
     }
   };
 
-  // 現在のモード表示用（ピルのどちらをアクティブにするか）
-  const currentIsTranslate = isTranslateSentence(query);
-
   return (
     <div className="app-container">
+      {/* 管理者ログインモーダル */}
+      {showAdminModal && (
+        <AdminLoginModal
+          onClose={() => setShowAdminModal(false)}
+          onSuccess={handleAdminSuccess}
+        />
+      )}
+
+      {/* 管理者バッジ */}
+      {isAdmin && (
+        <div style={{
+          position: 'fixed', top: '12px', right: '12px', zIndex: 100,
+          background: 'rgba(112,255,112,0.15)',
+          border: '1px solid rgba(112,255,112,0.4)',
+          borderRadius: '20px',
+          padding: '6px 12px',
+          fontSize: '0.75rem',
+          color: '#70ff70',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          backdropFilter: 'blur(8px)',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+        }}
+          onClick={() => {
+            if (window.confirm('管理者権限を解除しますか？')) {
+              setIsAdmin(false);
+              setAdminPassword('');
+            }
+          }}
+          title="クリックで権限解除"
+        >
+          <ShieldCheck size={12} />
+          管理者モード
+        </div>
+      )}
+
       <div className={`content-wrapper ${isExpanded ? 'moved-up' : ''}`}>
-        <h1 onClick={handleTitleClick} className={`main-title ${isExpanded ? 'squashed' : ''} ${error ? 'is-error' : ''}`}>
+        <h1
+          onClick={handleTitleClick}
+          className={`main-title ${isExpanded ? 'squashed' : ''} ${error ? 'is-error' : ''}`}
+        >
           Swa i-tya!
         </h1>
 
@@ -560,11 +783,7 @@ export default function App() {
                 const newText = e.target.value;
                 setQuery(newText);
                 if (newText.trim() !== '') {
-                  if (isTranslateSentence(newText)) {
-                    setMode('translate');
-                  } else {
-                    setMode('word');
-                  }
+                  setMode(isTranslateSentence(newText) ? 'translate' : 'word');
                 }
               }}
               disabled={isExpanded}
@@ -753,20 +972,9 @@ export default function App() {
               </div>
             )}
 
+            {/* 改善されたエラー表示 */}
             {error && !isSearching && (
-              <div className="inner-result fade-in-up">
-                <p className="concept-text">
-                  {error === 'overload' ? 'サーバー保護中！' : 'エラー！'}
-                </p>
-                <h2 className="word-display" style={{ fontSize: error === 'overload' ? '2.2rem' : '' }}>
-                  {error === 'overload' ? 'SYSTEM OVERLOAD' : 'Error'}
-                </h2>
-                <div className="reason-text">
-                  {error === 'overload' && (errorMessage || 'AIサーバーが混雑しています。しばらく待ってから再試行してください。')}
-                  {error === 'invalid' && '入力を理解できませんでした。別の表現で試してみてください。'}
-                  {error === 'connection' && 'サーバーとの接続に失敗しました。ネットワークを確認してください。'}
-                </div>
-              </div>
+              <ErrorDisplay error={error} errorMessage={errorMessage} />
             )}
 
           </div>
@@ -774,15 +982,11 @@ export default function App() {
           <button
             type={isExpanded ? "button" : "submit"}
             className={`search-button ${isExpanded ? 'stored' : ''}`}
-            
-            // 🚨 長押し・タッチイベント群
             onMouseDown={handleTouchStart}
             onMouseUp={handleTouchEnd}
             onMouseLeave={handleTouchEnd}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
-            
-            // 🚨 クリック暴発防止＆クリア処理
             onClick={(e) => {
               if (isLongPress.current) {
                 e.preventDefault();
@@ -794,7 +998,6 @@ export default function App() {
                 resetSearch();
               }
             }}
-            
             style={{
               userSelect: 'none',
               WebkitTouchCallout: 'none',
@@ -802,15 +1005,12 @@ export default function App() {
             }}
           >
             <span style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               transform: `scale(${iconScale})`,
-              transition: iconScale === 0 
-                ? 'transform 0.15s ease-in' 
+              transition: iconScale === 0
+                ? 'transform 0.15s ease-in'
                 : 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
             }}>
-
               {displayIconType === 'x' && <X size={28} strokeWidth={3.5} />}
               {displayIconType === 'translate' && <Languages size={28} strokeWidth={2} />}
               {displayIconType === 'search' && <Search size={28} strokeWidth={3.5} />}
