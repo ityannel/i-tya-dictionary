@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp, Link, Check, Settings, Languages, Lock, Eye, EyeOff, ShieldCheck, AlertTriangle, WifiOff, Zap } from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check, Settings, Languages } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
@@ -8,7 +8,6 @@ import DictionaryList from './DictionaryList';
 // ─── 管理者ログインモーダル ───
 function AdminLoginModal({ onClose, onSuccess }) {
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const inputRef = useRef(null);
@@ -48,193 +47,105 @@ function AdminLoginModal({ onClose, onSuccess }) {
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(8px)',
+        background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '20px',
-        animation: 'fadeIn 0.2s ease'
+        animation: 'adminFadeIn 0.15s ease'
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
+      <style>{`
+        @keyframes adminFadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes adminSlideUp { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes adminShake {
+          0%, 100% { transform: translateX(0) }
+          20% { transform: translateX(-8px) }
+          40% { transform: translateX(8px) }
+          60% { transform: translateX(-5px) }
+          80% { transform: translateX(5px) }
+        }
+      `}</style>
       <div
         style={{
-          background: 'var(--color-card, #1a0d2e)',
-          border: '1px solid rgba(112,255,112,0.3)',
-          borderRadius: '16px',
-          padding: '32px 28px',
+          background: '#1a3a5c',
+          border: '2px solid #ffe066',
+          borderRadius: '12px',
+          padding: '24px 20px',
           width: '100%',
-          maxWidth: '360px',
-          boxShadow: '0 0 60px rgba(112,255,112,0.15)',
-          animation: shake ? 'shake 0.4s ease' : 'slideUp 0.25s ease',
+          maxWidth: '300px',
+          animation: shake ? 'adminShake 0.4s ease' : 'adminSlideUp 0.2s ease',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-          <div style={{
-            width: '40px', height: '40px',
-            background: 'rgba(112,255,112,0.1)',
-            border: '1px solid rgba(112,255,112,0.4)',
-            borderRadius: '10px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#70ff70'
-          }}>
-            <Lock size={18} />
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-text, #fff)' }}>管理者認証</div>
-            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>パスワードを入力してください</div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              marginLeft: 'auto', background: 'none', border: 'none',
-              color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px',
-              borderRadius: '6px', transition: 'color 0.2s'
-            }}
-          >
-            <X size={18} />
-          </button>
+        <div style={{ marginBottom: '18px' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#ffe066' }}>管理者認証</div>
+          <div style={{ fontSize: '0.75rem', color: 'rgba(255,224,102,0.55)', marginTop: '3px' }}>パスワードを入力してください</div>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div style={{ position: 'relative', marginBottom: '16px' }}>
-            <input
-              ref={inputRef}
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="パスワード"
-              style={{
-                width: '100%',
-                padding: '12px 44px 12px 16px',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: '10px',
-                color: 'var(--color-text, #fff)',
-                fontSize: '1rem',
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.2s',
-                fontFamily: 'inherit',
-              }}
-              onFocus={(e) => e.target.style.borderColor = 'rgba(112,255,112,0.6)'}
-              onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.15)'}
-            />
+          <input
+            ref={inputRef}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="パスワード"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              background: 'transparent',
+              border: '2px solid #ffe066',
+              borderRadius: '8px',
+              color: '#ffe066',
+              fontSize: '0.95rem',
+              outline: 'none',
+              boxSizing: 'border-box',
+              fontFamily: 'inherit',
+              marginBottom: '10px',
+            }}
+          />
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              type="submit"
+              disabled={isLoading || !password.trim()}
               style={{
-                position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'rgba(255,255,255,0.4)', padding: '4px',
-                transition: 'color 0.2s'
+                flex: 1, padding: '10px',
+                background: 'transparent',
+                border: '2px solid #ffe066',
+                borderRadius: '8px',
+                color: '#ffe066',
+                fontWeight: 700, fontSize: '0.88rem',
+                cursor: isLoading || !password.trim() ? 'not-allowed' : 'pointer',
+                opacity: isLoading || !password.trim() ? 0.4 : 1,
+                fontFamily: 'inherit',
+                transition: 'opacity 0.15s',
               }}
             >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              {isLoading ? '認証中...' : '認証する'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '10px 14px',
+                background: 'transparent',
+                border: '2px solid rgba(255,224,102,0.3)',
+                borderRadius: '8px',
+                color: 'rgba(255,224,102,0.45)',
+                fontWeight: 700, fontSize: '0.88rem',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              キャンセル
             </button>
           </div>
-
-          <button
-            type="submit"
-            disabled={isLoading || !password.trim()}
-            style={{
-              width: '100%', padding: '12px',
-              background: isLoading || !password.trim()
-                ? 'rgba(112,255,112,0.2)'
-                : 'rgba(112,255,112,0.9)',
-              border: '1px solid rgba(112,255,112,0.5)',
-              borderRadius: '10px',
-              color: isLoading || !password.trim() ? 'rgba(255,255,255,0.4)' : '#0a0a0a',
-              fontWeight: 700, fontSize: '0.95rem',
-              cursor: isLoading || !password.trim() ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              fontFamily: 'inherit',
-            }}
-          >
-            {isLoading ? (
-              <>
-                <span style={{ width: '16px', height: '16px', border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#0a0a0a', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-                認証中...
-              </>
-            ) : (
-              <>
-                <ShieldCheck size={16} />
-                認証する
-              </>
-            )}
-          </button>
         </form>
-
-        <style>{`
-          @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-          @keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
-          @keyframes shake {
-            0%, 100% { transform: translateX(0) }
-            20% { transform: translateX(-8px) }
-            40% { transform: translateX(8px) }
-            60% { transform: translateX(-6px) }
-            80% { transform: translateX(6px) }
-          }
-          @keyframes spin { to { transform: rotate(360deg) } }
-        `}</style>
-      </div>
-    </div>
-  );
-}
-
-// ─── エラー表示コンポーネント ───
-function ErrorDisplay({ error, errorMessage }) {
-  const config = {
-    overload: {
-      icon: <Zap size={40} strokeWidth={1.5} />,
-      label: 'サーバー保護中！',
-      title: 'SYSTEM OVERLOAD',
-      message: errorMessage || 'AIサーバーが混雑しています。しばらく待ってから再試行してください。',
-      accent: '#ff9f43',
-    },
-    invalid: {
-      icon: <AlertTriangle size={40} strokeWidth={1.5} />,
-      label: 'エラー！',
-      title: '入力エラー',
-      message: '入力を理解できませんでした。別の表現で試してみてください。',
-      accent: '#ff6b6b',
-    },
-    connection: {
-      icon: <WifiOff size={40} strokeWidth={1.5} />,
-      label: 'エラー！',
-      title: '接続失敗',
-      message: 'サーバーとの接続に失敗しました。ネットワークを確認してください。',
-      accent: '#ff6b6b',
-    },
-  };
-
-  const cfg = config[error] || config.connection;
-
-  return (
-    <div className="inner-result fade-in-up">
-      <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
-        <div style={{
-          color: cfg.accent,
-          marginBottom: '12px',
-          opacity: 0.85,
-        }}>
-          {cfg.icon}
-        </div>
-        <p className="concept-text" style={{ color: cfg.accent, marginBottom: '4px' }}>{cfg.label}</p>
-        <h2 className="word-display" style={{ fontSize: '2rem', color: cfg.accent }}>
-          {cfg.title}
-        </h2>
-        <div className="reason-text" style={{ marginTop: '12px' }}>
-          {cfg.message}
-        </div>
       </div>
     </div>
   );
 }
 
 // ─── メインアプリ ───
+
 export default function App() {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -247,8 +158,8 @@ export default function App() {
   const [total, setTotal] = useState(0);
   const [copied, setCopied] = useState(false);
   const [activePos, setActivePos] = useState('noun');
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
+  const [isAdmin, setIsAdmin] = useState(() => sessionStorage.getItem('isAdmin') === 'true');
+  const [adminPassword, setAdminPassword] = useState(() => sessionStorage.getItem('adminPassword') || '');
   const [showAdminModal, setShowAdminModal] = useState(false);
   const clickCountRef = useRef(0);
   const clickTimerRef = useRef(null);
@@ -257,6 +168,7 @@ export default function App() {
   const [editReason, setEditReason] = useState('');
   const [mode, setMode] = useState('auto');
   const [isTranslateMode, setIsTranslateMode] = useState(false);
+  const [dictRefreshKey, setDictRefreshKey] = useState(0);
   const [translationResult, setTranslationResult] = useState(null);
   const timerRef = useRef(null);
   const isLongPress = useRef(false);
@@ -382,6 +294,8 @@ export default function App() {
   const handleAdminSuccess = (pass) => {
     setIsAdmin(true);
     setAdminPassword(pass);
+    sessionStorage.setItem('isAdmin', 'true');
+    sessionStorage.setItem('adminPassword', pass);
     setShowAdminModal(false);
   };
 
@@ -422,7 +336,8 @@ export default function App() {
       });
       if (res.ok) {
         alert("消去！");
-        window.location.reload();
+        resetSearch();
+        setDictRefreshKey(k => k + 1);
       } else {
         alert("NO権限");
       }
@@ -737,28 +652,28 @@ export default function App() {
 
       {/* 管理者バッジ */}
       {isAdmin && (
-        <div style={{
-          position: 'fixed', top: '12px', right: '12px', zIndex: 100,
-          background: 'rgba(112,255,112,0.15)',
-          border: '1px solid rgba(112,255,112,0.4)',
-          borderRadius: '20px',
-          padding: '6px 12px',
-          fontSize: '0.75rem',
-          color: '#70ff70',
-          display: 'flex', alignItems: 'center', gap: '6px',
-          backdropFilter: 'blur(8px)',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-        }}
+        <div
+          style={{
+            position: 'fixed', top: '12px', right: '12px', zIndex: 100,
+            background: '#1a3a5c',
+            border: '2px solid #ffe066',
+            borderRadius: '20px',
+            padding: '5px 13px',
+            fontSize: '0.75rem',
+            color: '#ffe066',
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
           onClick={() => {
             if (window.confirm('管理者権限を解除しますか？')) {
               setIsAdmin(false);
               setAdminPassword('');
+              sessionStorage.removeItem('isAdmin');
+              sessionStorage.removeItem('adminPassword');
             }
           }}
           title="クリックで権限解除"
         >
-          <ShieldCheck size={12} />
           管理者モード
         </div>
       )}
@@ -1022,6 +937,7 @@ export default function App() {
           <div className="dictionary-wrapper fade-in-up">
             <p className="total-count">{total}語収録中</p>
             <DictionaryList
+              key={dictRefreshKey}
               onWordClick={handleDictionaryClick}
               onTotalLoaded={(count) => setTotal(count)}
               isAdmin={isAdmin}
