@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 const alphabets = ['all', 'a', 'i', 'u', 'h', 'k', 'l', 'm', 'n', 'p', 's', 't', 'w', 'y'];
 
-export default function DictionaryList({ onWordClick, onTotalLoaded }) {
+export default function DictionaryList({ onWordClick, onTotalLoaded, isAdmin, onDelete }) {
   const [words, setWords] = useState([]);
   const [page, setPage] = useState(1);
   const [selectedLetter, setSelectedLetter] = useState('all');
@@ -84,6 +84,18 @@ export default function DictionaryList({ onWordClick, onTotalLoaded }) {
             >
               <span className="word-itya">{entry.word}</span>
               <span className="word-ja">{entry.meaning}</span>
+              {isAdmin && (
+                <button
+                  className="word-card-delete-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete && onDelete(entry.id, entry.word);
+                  }}
+                  title="削除"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           );
         })}

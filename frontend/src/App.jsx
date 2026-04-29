@@ -18,6 +18,7 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [activePos, setActivePos] = useState('noun');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
   const clickCountRef = useRef(0);
   const clickTimerRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -146,11 +147,24 @@ export default function App() {
 
     if (clickCountRef.current === 5) {
       const pass = prompt("管理者パスワードを入力してください：");
-      if (pass === "itya_admin_NT") {
-        setIsAdmin(true);
-        alert("管理者権限を承認しました！");
-      } else {
-        alert("誰だお前は！");
+      if (pass) {
+        // パスワードをサーバー側で検証する（フロントにハードコードしない）
+        fetch('https://i-tya-dictionary.onrender.com/api/admin/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pass })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok) {
+              setIsAdmin(true);
+              setAdminPassword(pass);
+              alert("管理者権限を承認しました！");
+            } else {
+              alert("誰だお前は！");
+            }
+          })
+          .catch(() => alert("サーバーとの接続に失敗しました。"));
       }
       clickCountRef.current = 0;
     }
@@ -172,7 +186,7 @@ export default function App() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          password: "itya_admin_NT",
+          password: adminPassword,
           meaning: editConcept,
           reason: editReason
         })
@@ -197,7 +211,7 @@ export default function App() {
       const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: "itya_admin_NT" })
+        body: JSON.stringify({ password: adminPassword })
       });
 
       if (res.ok) {
@@ -386,9 +400,11 @@ export default function App() {
   };
 
   const executeTranslation = async (sentence) => {
-    setIsSearching(true);
-    setResult(null);
-    setError(null);
+    safeTransition(() => {
+      setIsSearching(true);
+      setResult(null);
+      setError(null);
+    });
 
     try {
       const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
@@ -421,8 +437,10 @@ export default function App() {
         return;
       }
 
-      setTranslationResult(data);
-      setIsSearching(false);
+      safeTransition(() => {
+        setTranslationResult(data);
+        setIsSearching(false);
+      });
 
     } catch (err) {
       console.error("翻訳通信エラー:", err);
@@ -575,25 +593,25 @@ export default function App() {
             {result && !isSearching && !error && (
               <div className="inner-result fade-in-up">
                 {isEditing ? (
-                  <div className="admin-edit-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
-                    <div style={{ color: '#ff4d4d', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center' }}>🔧 管理者データベース編集モード</div>
+                  <div className="admin-edit-form">
+                    <div className="admin-edit-title">🔧 管理者データベース編集モード</div>
                     <input
+                      className="admin-edit-input"
                       value={editConcept}
                       onChange={(e) => setEditConcept(e.target.value)}
-                      style={{ fontSize: '1.2rem', padding: '12px', borderRadius: '8px', border: '2px solid #ff4d4d', background: 'rgba(0,0,0,0.2)', color: 'white' }}
                       placeholder="意味・概念を編集"
                     />
                     <textarea
+                      className="admin-edit-textarea"
                       value={editReason}
                       onChange={(e) => setEditReason(e.target.value)}
-                      style={{ fontSize: '1rem', padding: '12px', height: '150px', borderRadius: '8px', border: '2px solid #ff4d4d', background: 'rgba(0,0,0,0.2)', color: 'white', resize: 'vertical' }}
                       placeholder="解説を編集"
                     />
-                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
-                      <button type="button" onClick={saveEdit} style={{ background: '#ff4d4d', color: 'white', padding: '12px 24px', borderRadius: '30px', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>
+                    <div className="admin-edit-actions">
+                      <button type="button" className="admin-save-btn" onClick={saveEdit}>
                         上書き保存
                       </button>
-                      <button type="button" onClick={() => setIsEditing(false)} style={{ background: 'transparent', color: '#ff4d4d', padding: '12px 24px', borderRadius: '30px', border: '2px solid #ff4d4d', cursor: 'pointer', fontWeight: 'bold' }}>
+                      <button type="button" className="admin-cancel-btn" onClick={() => setIsEditing(false)}>
                         キャンセル
                       </button>
                     </div>
@@ -665,7 +683,7 @@ export default function App() {
                               : (result.reason_extender || result.reason));
                           setEditConcept(currentConcept || '');
                           setEditReason(currentReason || '');
-                        }} style={{ color: '#ff4d4d', borderColor: '#ff4d4d' }}>
+                        }}>
                           <Settings size={20} strokeWidth={2.5} />
                         </button>
                       )}

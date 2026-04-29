@@ -919,3 +919,134 @@ body {
     border-width: 2.5px;
   }
 }
+/* ===== 管理者UI ===== */
+.admin-btn {
+  color: #ff4d4d;
+  border-color: #ff4d4d;
+}
+
+.admin-btn:hover {
+  background: rgba(255, 77, 77, 0.15);
+  border-color: #ff4d4d;
+  transform: scale(1.1);
+}
+
+.admin-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.admin-edit-title {
+  color: #ff4d4d;
+  font-weight: bold;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.admin-edit-input {
+  font-family: inherit;
+  font-size: 1.2rem;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid #ff4d4d;
+  background: rgba(255, 77, 77, 0.05);
+  color: rgba(112, 255, 112, 1);
+  outline: none;
+  transition: background 0.2s;
+}
+
+.admin-edit-input:focus {
+  background: rgba(255, 77, 77, 0.1);
+}
+
+.admin-edit-textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 12px;
+  height: 150px;
+  border-radius: 12px;
+  border: 2px solid #ff4d4d;
+  background: rgba(255, 77, 77, 0.05);
+  color: rgba(112, 255, 112, 1);
+  outline: none;
+  resize: vertical;
+  line-height: 1.6;
+  transition: background 0.2s;
+}
+
+.admin-edit-textarea:focus {
+  background: rgba(255, 77, 77, 0.1);
+}
+
+.admin-edit-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.admin-save-btn {
+  background: #ff4d4d;
+  color: white;
+  padding: 12px 28px;
+  border-radius: 30px;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 1.1rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.admin-save-btn:hover {
+  opacity: 0.85;
+  transform: scale(1.05);
+}
+
+.admin-cancel-btn {
+  background: transparent;
+  color: #ff4d4d;
+  padding: 12px 28px;
+  border-radius: 30px;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 1.1rem;
+  border: 2px solid #ff4d4d;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.admin-cancel-btn:hover {
+  background: rgba(255, 77, 77, 0.1);
+  transform: scale(1.05);
+}
+
+/* 辞書リスト内の削除ボタン */
+.word-card-delete-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 2px solid #ff4d4d;
+  color: #ff4d4d;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+  margin-left: 8px;
+}
+
+.word-card-delete-btn:hover {
+  background: rgba(255, 77, 77, 0.15);
+  transform: scale(1.1);
+}
+
+.word-card-delete-btn:active {
+  transform: scale(0.9);
+}
