@@ -15,12 +15,12 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
-  text-align: center;
   align-items: flex-start;
+  text-align: center;
   padding-top: 10vh;
 }
 
+/* ===== スケルトン ===== */
 .skeleton-line.concept-skel {
   width: 40%;
   height: 1.4rem;
@@ -45,11 +45,9 @@ body {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(112, 255, 112, 1) transparent;
-
   display: flex;
   flex-direction: column;
 }
-
 
 .trivia-text {
   color: rgba(202, 255, 202, 1);
@@ -61,18 +59,11 @@ body {
 }
 
 @keyframes triviaFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(15px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-
+/* ===== ボタン：スクロールトップ・検索 ===== */
 .search-button.stored {
   position: fixed;
   top: 30px;
@@ -86,7 +77,6 @@ body {
   letter-spacing: -0.05em;
   white-space: nowrap;
   text-align: center;
-
   transform-origin: top center;
   transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -160,13 +150,8 @@ body {
   width: 100%;
 }
 
-.skeleton-line.mid {
-  width: 80%;
-}
-
-.skeleton-line.long {
-  width: 90%;
-}
+.skeleton-line.mid  { width: 80%; }
+.skeleton-line.long { width: 90%; }
 
 .skeleton-box.short {
   height: 40px;
@@ -181,13 +166,8 @@ body {
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .morph-box {
@@ -211,15 +191,8 @@ body {
 }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .morph-box.expanded {
@@ -235,7 +208,6 @@ body {
   padding: 0;
   margin: 0;
   border: none;
-  margin-top: -80px;
   pointer-events: none;
   flex-grow: 0;
   overflow: hidden;
@@ -249,17 +221,6 @@ body {
   flex-direction: column;
   position: relative;
 }
-
-.morph-input.hidden {
-  opacity: 0;
-  height: 0;
-  min-height: 0;
-  padding: 0;
-  margin: 0;
-  border: none;
-  pointer-events: none;
-}
-
 
 .morph-input {
   flex-grow: 1;
@@ -283,7 +244,6 @@ body {
     backdrop-filter: blur(12px);
     box-shadow: 0 8px 32px 0 rgba(112, 255, 112, 0.15);
   }
-
   .search-button:hover {
     transform: rotate(360deg) scale(1.1);
   }
@@ -337,7 +297,6 @@ body {
   margin-bottom: 1.5rem;
 }
 
-
 .skeleton-wrapper {
   opacity: 0;
   transform: translateY(20px);
@@ -387,6 +346,7 @@ body {
   overflow-wrap: anywhere;
   width: 100%;
   padding-top: 30px;
+  min-height: 200px;
   animation: fadeInUp 0.3s cubic-bezier(0.23, 1, 0.32, 1) forwards;
 }
 
@@ -408,12 +368,10 @@ body {
   color: #ff4d4d;
 }
 
-
 .badge-new {
   background: rgba(112, 255, 112, 1);
   color: rgba(74, 28, 83, 1);
   border-radius: 999px;
-
   padding: 2px 10px;
   font-size: 1.2rem;
   font-weight: 700;
@@ -422,22 +380,38 @@ body {
 .badge-compound {
   background: transparent;
   border: 1.5px solid rgba(112, 255, 112, 1);
-  ;
   color: rgba(112, 255, 112, 1);
-  ;
   border-radius: 999px;
   padding: 2px 10px;
   font-size: 1.2rem;
   font-weight: 700;
 }
 
+/* ===== エラー表示 ===== */
+.error-display {
+  padding: 16px 0;
+  text-align: left;
+}
 
+.error-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ff4d4d;
+  margin-bottom: 8px;
+}
+
+.error-desc {
+  font-size: 1rem;
+  color: rgba(255, 77, 77, 0.75);
+  line-height: 1.6;
+}
+
+/* ===== 辞書リスト ===== */
 .dictionary-container {
   margin-top: 2rem;
   padding: 0;
   width: 100%;
   max-width: 95vw;
-
   animation: emotionalFadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: transform, opacity, filter;
 }
@@ -460,9 +434,7 @@ body {
   cursor: pointer;
   font-family: inherit;
   font-size: 1.2rem;
-  transition: background-color 0.3s,
-    border-color 0.3s,
-    box-shadow 0.3s,
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s,
     transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
 }
 
@@ -505,6 +477,7 @@ body {
   border-radius: 12px;
   cursor: pointer;
   transition: transform 0.2s, background 0.2s;
+  gap: 12px;
 }
 
 .word-card:hover {
@@ -517,17 +490,50 @@ body {
   transform: scale(0.95);
 }
 
+/* 削除モード中のカード */
+.word-card.delete-mode {
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.word-card.delete-mode:hover {
+  border-color: rgba(112, 255, 112, 0.4);
+}
+
+.word-card.delete-mode.selected {
+  background: rgba(112, 255, 112, 0.12);
+  border-color: rgba(112, 255, 112, 0.8);
+}
+
+.word-card-select-indicator {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  color: rgba(112, 255, 112, 0.7);
+  margin-left: auto;
+  min-width: 24px;
+  text-align: center;
+}
+
+.word-card.selected .word-card-select-indicator {
+  color: rgba(112, 255, 112, 1);
+  font-weight: bold;
+}
+
 .word-itya {
   font-size: 2rem;
   font-weight: bold;
   color: rgba(112, 255, 112, 1);
+  flex-shrink: 0;
 }
 
 .word-ja {
   font-size: 1rem;
   color: rgba(112, 255, 112, 1);
   text-align: right;
-  max-width: 60%;
+  flex: 1;
+  min-width: 0;
+  /* i-tyaの長さに依存せず均一に */
 }
 
 .end-msg {
@@ -538,19 +544,11 @@ body {
 }
 
 @keyframes emotionalFadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(15px);
-    filter: blur(4px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
+  0%   { opacity: 0; transform: translateY(15px); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0);    filter: blur(0); }
 }
 
+/* ===== スクロールトップボタン ===== */
 .scroll-top-btn {
   position: fixed;
   bottom: 24px;
@@ -569,7 +567,8 @@ body {
   opacity: 0;
   visibility: hidden;
   transform: scale(0);
-  transition: opacity 0.4s ease, visibility 0.4s ease, background-color 0.3s ease, box-shadow 0.3s ease, transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  transition: opacity 0.4s ease, visibility 0.4s ease, background-color 0.3s ease,
+    box-shadow 0.3s ease, transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
 }
 
 .scroll-top-btn.show {
@@ -584,55 +583,15 @@ body {
 }
 
 @keyframes iconRubberBand {
-
-  /* 0%〜20%: 指で下にグッと押し込んで力を「溜める」 */
-  0% {
-    transform: translateY(0) scale(1, 1);
-  }
-
-  10% {
-    transform: translateY(4px) scale(1.1, 0.85);
-  }
-
-  20% {
-    transform: translateY(6px) scale(1.15, 0.75);
-  }
-
-  /* 最大の溜め！ */
-
-  /* 20%〜40%: 指を離した瞬間、一気に上に弾け飛ぶ（パチン！） */
-  30% {
-    transform: translateY(-16px) scale(0.8, 1.2);
-  }
-
-  /* 細長くなって上に飛ぶ */
-  40% {
-    transform: translateY(-20px) scale(0.85, 1.15);
-  }
-
-  /* 頂点！ */
-
-  /* 40%〜70%: 着地して、慣性でビヨヨンと震える（余韻） */
-  50% {
-    transform: translateY(0) scale(1.1, 0.85);
-  }
-
-  /* 地面に激突して潰れる */
-  60% {
-    transform: translateY(-6px) scale(0.95, 1.05);
-  }
-
-  /* 少しだけ跳ね返る */
-  70% {
-    transform: translateY(0) scale(1.05, 0.95);
-  }
-
-  /* もう一度少し潰れる */
-
-  /* 70%〜100%: 元の形に戻って静止 */
-  100% {
-    transform: translateY(0) scale(1, 1);
-  }
+  0%   { transform: translateY(0) scale(1, 1); }
+  10%  { transform: translateY(4px) scale(1.1, 0.85); }
+  20%  { transform: translateY(6px) scale(1.15, 0.75); }
+  30%  { transform: translateY(-16px) scale(0.8, 1.2); }
+  40%  { transform: translateY(-20px) scale(0.85, 1.15); }
+  50%  { transform: translateY(0) scale(1.1, 0.85); }
+  60%  { transform: translateY(-6px) scale(0.95, 1.05); }
+  70%  { transform: translateY(0) scale(1.05, 0.95); }
+  100% { transform: translateY(0) scale(1, 1); }
 }
 
 .scroll-top-btn:hover svg {
@@ -674,10 +633,6 @@ body {
   background: rgba(112, 255, 112, 0.1);
 }
 
-.x-btn {
-  border-color: rgba(112, 255, 112, 0.6);
-}
-
 .pos-select {
   flex-shrink: 0;
   background-color: transparent;
@@ -699,55 +654,338 @@ body {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.pos-select:hover, 
+.pos-select:hover,
 .pos-select:focus {
   background-color: rgba(112, 255, 112, 1);
   color: rgba(74, 28, 83, 1);
   background-image: url('data:image/svg+xml;charset=US-ASCII,<svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="%234A1C53" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 }
 
-/* ※注意※
-  PCのChrome等では効くが、スマホではOS標準のデザインになる。
-  これ以上は<select>の限界だ！
-*/
 .pos-select option {
   background-color: rgba(74, 28, 83, 1);
   color: rgba(112, 255, 112, 1);
   font-weight: 700;
 }
 
-.reason-text {
-  min-height: 200px;
-}
-
 .mode-icon-toggle {
   background: transparent;
   border: none;
-  font-size: 1.6rem; /* アイコンの大きさはお好みで調整しろ */
+  font-size: 1.6rem;
   cursor: pointer;
-  padding: 0 8px 0 16px; /* 左側に少し余白を持たせる */
+  padding: 0 8px 0 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
-  user-select: none; /* スマホで長押しした時のハイライトを防ぐ */
-  -webkit-tap-highlight-color: transparent; /* スマホ特有のタップ時の青い枠を消す */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* 押した時に少し沈むアニメーション（気持ちいいUX） */
 .mode-icon-toggle:active {
   transform: scale(0.85);
   opacity: 0.7;
 }
 
-/* 検索時に消える input との余白調整 */
-.morph-input {
-  /* もし input の左側の padding がデカすぎるなら、ここで微調整しろ */
-  /* padding-left: 10px; */
+/* ===== 管理者バッジ（アイコンのみ） ===== */
+.admin-badge-btn {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 200;
+  background: transparent;
+  border: 3px solid rgba(112, 255, 112, 0.5);
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(112, 255, 112, 0.8);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, transform 0.2s;
 }
 
+.admin-badge-btn:hover {
+  border-color: rgba(112, 255, 112, 1);
+  color: rgba(112, 255, 112, 1);
+  transform: scale(1.08);
+}
+
+.admin-badge-btn:active {
+  transform: scale(0.92);
+}
+
+/* ===== 管理者ログインモーダル ===== */
+@keyframes adminFadeIn    { from { opacity: 0 }              to { opacity: 1 } }
+@keyframes adminSlideUp   { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes adminShake {
+  0%, 100% { transform: translateX(0) }
+  20%      { transform: translateX(-8px) }
+  40%      { transform: translateX(8px) }
+  60%      { transform: translateX(-5px) }
+  80%      { transform: translateX(5px) }
+}
+
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: adminFadeIn 0.15s ease;
+}
+
+.admin-modal-box {
+  background: rgba(74, 28, 83, 1);
+  border: 3px solid rgba(112, 255, 112, 0.6);
+  border-radius: 20px;
+  padding: 28px 22px 22px;
+  width: 100%;
+  max-width: 300px;
+  box-sizing: border-box;
+}
+
+.admin-modal-box.admin-slide-up {
+  animation: adminSlideUp 0.2s ease;
+}
+
+.admin-modal-box.admin-shake {
+  animation: adminShake 0.4s ease;
+}
+
+.admin-modal-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: rgba(112, 255, 112, 1);
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.admin-modal-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: 3px solid rgba(112, 255, 112, 0.5);
+  border-radius: 12px;
+  color: rgba(112, 255, 112, 1);
+  font-size: 1rem;
+  font-family: inherit;
+  font-weight: 600;
+  outline: none;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+
+.admin-modal-input:focus {
+  border-color: rgba(112, 255, 112, 1);
+}
+
+.admin-modal-input::placeholder {
+  color: rgba(112, 255, 112, 0.4);
+}
+
+.admin-modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-modal-submit {
+  flex: 1;
+  padding: 10px;
+  background: rgba(112, 255, 112, 1);
+  border: none;
+  border-radius: 10px;
+  color: rgba(74, 28, 83, 1);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.admin-modal-submit.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.admin-modal-cancel {
+  padding: 10px 14px;
+  background: transparent;
+  border: 3px solid rgba(112, 255, 112, 0.3);
+  border-radius: 10px;
+  color: rgba(112, 255, 112, 0.5);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.admin-modal-cancel:hover {
+  border-color: rgba(112, 255, 112, 0.6);
+  color: rgba(112, 255, 112, 0.8);
+}
+
+/* ===== 管理者削除モードツールバー ===== */
+.admin-delete-toolbar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.admin-delete-mode-btn {
+  background: transparent;
+  border: 3px solid rgba(112, 255, 112, 0.5);
+  color: rgba(112, 255, 112, 0.8);
+  border-radius: 999px;
+  padding: 6px 20px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.admin-delete-mode-btn:hover {
+  border-color: rgba(112, 255, 112, 1);
+  color: rgba(112, 255, 112, 1);
+}
+
+.admin-delete-mode-btn--cancel {
+  border-color: rgba(112, 255, 112, 0.3);
+  color: rgba(112, 255, 112, 0.5);
+}
+
+.admin-delete-mode-btn--confirm {
+  background: rgba(255, 77, 77, 0.15);
+  border-color: #ff4d4d;
+  color: #ff4d4d;
+}
+
+.admin-delete-mode-btn--confirm:hover {
+  background: rgba(255, 77, 77, 0.25);
+}
+
+/* ===== 管理者UI（詳細画面・編集） ===== */
+.admin-btn {
+  color: rgba(112, 255, 112, 0.6);
+  border-color: rgba(112, 255, 112, 0.4);
+}
+
+.admin-btn:hover {
+  background: rgba(112, 255, 112, 0.1);
+  border-color: rgba(112, 255, 112, 0.8);
+  color: rgba(112, 255, 112, 1);
+  transform: scale(1.1);
+}
+
+.admin-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.admin-edit-title {
+  color: rgba(112, 255, 112, 0.7);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.03em;
+}
+
+.admin-edit-input {
+  font-family: inherit;
+  font-size: 1.6rem;
+  font-weight: 700;
+  padding: 0 0 6px 0;
+  border: none;
+  border-bottom: 2px solid rgba(112, 255, 112, 0.3);
+  border-radius: 0;
+  background: transparent;
+  color: rgba(112, 255, 112, 1);
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.admin-edit-input:focus {
+  border-bottom-color: rgba(112, 255, 112, 0.8);
+}
+
+.admin-edit-textarea {
+  font-family: inherit;
+  font-size: 1.1rem;
+  padding: 10px 0;
+  border: none;
+  border-top: 1px solid rgba(112, 255, 112, 0.15);
+  border-radius: 0;
+  background: transparent;
+  color: rgba(202, 255, 202, 1);
+  outline: none;
+  resize: vertical;
+  line-height: 1.6;
+  min-height: 120px;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.admin-edit-textarea:focus {
+  border-top-color: rgba(112, 255, 112, 0.4);
+}
+
+.admin-edit-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.admin-save-btn {
+  background: rgba(112, 255, 112, 1);
+  color: rgba(74, 28, 83, 1);
+  padding: 10px 24px;
+  border-radius: 30px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.admin-save-btn:hover {
+  opacity: 0.85;
+  transform: scale(1.03);
+}
+
+.admin-cancel-btn {
+  background: transparent;
+  color: rgba(112, 255, 112, 0.6);
+  padding: 10px 24px;
+  border-radius: 30px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  border: 3px solid rgba(112, 255, 112, 0.3);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+.admin-cancel-btn:hover {
+  border-color: rgba(112, 255, 112, 0.6);
+  color: rgba(112, 255, 112, 0.9);
+  transform: scale(1.03);
+}
+
+/* ===== スマホ対応 ===== */
 @media (max-width: 768px) {
-  .word-itya{
+  .word-itya {
     word-break: break-all;
     text-align: left;
   }
@@ -766,6 +1004,7 @@ body {
     position: relative;
     width: 100%;
     display: block;
+    margin-bottom: 1rem;
   }
 
   .search-button {
@@ -773,7 +1012,6 @@ body {
     top: 0;
     bottom: 0;
     margin: auto 0;
-
     right: 10px;
     width: 45px;
     height: 45px;
@@ -863,11 +1101,7 @@ body {
   }
 
   .trivia-text {
-    font-size: 0.9rem;                                                               
-  }
-
-  .search-form {
-    margin-bottom: 1rem;
+    font-size: 0.9rem;
   }
 
   .concept-text {
@@ -896,12 +1130,11 @@ body {
     padding-right: 50px;
   }
 
-  .word-card{
+  .word-card {
     gap: 16px;
   }
 
   .mode-indicator {
-    /* スマホではsearch-formの下に自然な余白で配置 */
     padding-right: 0;
     margin-top: 0;
     margin-bottom: 0.8rem;
@@ -918,135 +1151,11 @@ body {
     padding: 0 14px;
     border-width: 2.5px;
   }
-}
-/* ===== 管理者UI ===== */
-.admin-btn {
-  color: #ff4d4d;
-  border-color: #ff4d4d;
-}
 
-.admin-btn:hover {
-  background: rgba(255, 77, 77, 0.15);
-  border-color: #ff4d4d;
-  transform: scale(1.1);
-}
-
-.admin-edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  margin-top: 10px;
-}
-
-.admin-edit-title {
-  color: #ff4d4d;
-  font-weight: bold;
-  font-size: 1.2rem;
-  text-align: center;
-}
-
-.admin-edit-input {
-  font-family: inherit;
-  font-size: 1.2rem;
-  padding: 12px;
-  border-radius: 12px;
-  border: 2px solid #ff4d4d;
-  background: rgba(255, 77, 77, 0.05);
-  color: rgba(112, 255, 112, 1);
-  outline: none;
-  transition: background 0.2s;
-}
-
-.admin-edit-input:focus {
-  background: rgba(255, 77, 77, 0.1);
-}
-
-.admin-edit-textarea {
-  font-family: inherit;
-  font-size: 1rem;
-  padding: 12px;
-  height: 150px;
-  border-radius: 12px;
-  border: 2px solid #ff4d4d;
-  background: rgba(255, 77, 77, 0.05);
-  color: rgba(112, 255, 112, 1);
-  outline: none;
-  resize: vertical;
-  line-height: 1.6;
-  transition: background 0.2s;
-}
-
-.admin-edit-textarea:focus {
-  background: rgba(255, 77, 77, 0.1);
-}
-
-.admin-edit-actions {
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  margin-top: 10px;
-}
-
-.admin-save-btn {
-  background: #ff4d4d;
-  color: white;
-  padding: 12px 28px;
-  border-radius: 30px;
-  font-family: inherit;
-  font-weight: bold;
-  font-size: 1.1rem;
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.2s, transform 0.2s;
-}
-
-.admin-save-btn:hover {
-  opacity: 0.85;
-  transform: scale(1.05);
-}
-
-.admin-cancel-btn {
-  background: transparent;
-  color: #ff4d4d;
-  padding: 12px 28px;
-  border-radius: 30px;
-  font-family: inherit;
-  font-weight: bold;
-  font-size: 1.1rem;
-  border: 2px solid #ff4d4d;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
-}
-
-.admin-cancel-btn:hover {
-  background: rgba(255, 77, 77, 0.1);
-  transform: scale(1.05);
-}
-
-/* 辞書リスト内の削除ボタン */
-.word-card-delete-btn {
-  flex-shrink: 0;
-  background: transparent;
-  border: 2px solid #ff4d4d;
-  color: #ff4d4d;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  font-size: 0.8rem;
-  font-family: inherit;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s, transform 0.2s;
-  margin-left: 8px;
-}
-
-.word-card-delete-btn:hover {
-  background: rgba(255, 77, 77, 0.15);
-  transform: scale(1.1);
-}
-
-.word-card-delete-btn:active {
-  transform: scale(0.9);
+  .admin-badge-btn {
+    width: 38px;
+    height: 38px;
+    top: 8px;
+    right: 8px;
+  }
 }

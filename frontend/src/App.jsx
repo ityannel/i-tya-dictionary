@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp, Link, Check, Settings, Languages } from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check, Settings, Languages, ShieldCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
@@ -45,42 +45,11 @@ function AdminLoginModal({ onClose, onSuccess }) {
 
   return (
     <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px',
-        animation: 'adminFadeIn 0.15s ease'
-      }}
+      className="admin-modal-overlay"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <style>{`
-        @keyframes adminFadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes adminSlideUp { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: translateY(0) } }
-        @keyframes adminShake {
-          0%, 100% { transform: translateX(0) }
-          20% { transform: translateX(-8px) }
-          40% { transform: translateX(8px) }
-          60% { transform: translateX(-5px) }
-          80% { transform: translateX(5px) }
-        }
-      `}</style>
-      <div
-        style={{
-          background: '#1a3a5c',
-          border: '2px solid #ffe066',
-          borderRadius: '12px',
-          padding: '24px 20px',
-          width: '100%',
-          maxWidth: '300px',
-          animation: shake ? 'adminShake 0.4s ease' : 'adminSlideUp 0.2s ease',
-        }}
-      >
-        <div style={{ marginBottom: '18px' }}>
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#ffe066' }}>管理者認証</div>
-          <div style={{ fontSize: '0.75rem', color: 'rgba(255,224,102,0.55)', marginTop: '3px' }}>パスワードを入力してください</div>
-        </div>
-
+      <div className={`admin-modal-box ${shake ? 'admin-shake' : 'admin-slide-up'}`}>
+        <div className="admin-modal-title">管理者認証</div>
         <form onSubmit={handleSubmit}>
           <input
             ref={inputRef}
@@ -88,53 +57,17 @@ function AdminLoginModal({ onClose, onSuccess }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="パスワード"
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              background: 'transparent',
-              border: '2px solid #ffe066',
-              borderRadius: '8px',
-              color: '#ffe066',
-              fontSize: '0.95rem',
-              outline: 'none',
-              boxSizing: 'border-box',
-              fontFamily: 'inherit',
-              marginBottom: '10px',
-            }}
+            className="admin-modal-input"
           />
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="admin-modal-actions">
             <button
               type="submit"
               disabled={isLoading || !password.trim()}
-              style={{
-                flex: 1, padding: '10px',
-                background: 'transparent',
-                border: '2px solid #ffe066',
-                borderRadius: '8px',
-                color: '#ffe066',
-                fontWeight: 700, fontSize: '0.88rem',
-                cursor: isLoading || !password.trim() ? 'not-allowed' : 'pointer',
-                opacity: isLoading || !password.trim() ? 0.4 : 1,
-                fontFamily: 'inherit',
-                transition: 'opacity 0.15s',
-              }}
+              className={`admin-modal-submit${isLoading || !password.trim() ? ' disabled' : ''}`}
             >
               {isLoading ? '認証中...' : '認証する'}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: '10px 14px',
-                background: 'transparent',
-                border: '2px solid rgba(255,224,102,0.3)',
-                borderRadius: '8px',
-                color: 'rgba(255,224,102,0.45)',
-                fontWeight: 700, fontSize: '0.88rem',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
+            <button type="button" onClick={onClose} className="admin-modal-cancel">
               キャンセル
             </button>
           </div>
@@ -144,8 +77,23 @@ function AdminLoginModal({ onClose, onSuccess }) {
   );
 }
 
-// ─── メインアプリ ───
+// ─── エラー表示 ───
+function ErrorDisplay({ error, errorMessage }) {
+  const messages = {
+    overload: { title: 'サーバー混雑中', desc: errorMessage || 'しばらく待ってからもう一度試してください。' },
+    invalid: { title: '入力エラー', desc: 'i-tyaに変換できない入力です。日本語で入力してください。' },
+    connection: { title: '接続失敗', desc: 'サーバーに接続できませんでした。ネットワークを確認してください。' },
+  };
+  const msg = messages[error] || { title: 'エラー', desc: '不明なエラーが発生しました。' };
+  return (
+    <div className="error-display fade-in-up">
+      <div className="error-title">{msg.title}</div>
+      <div className="error-desc">{msg.desc}</div>
+    </div>
+  );
+}
 
+// ─── メインアプリ ───
 export default function App() {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -177,6 +125,11 @@ export default function App() {
   const [displayIconType, setDisplayIconType] = useState('search');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // 削除モード
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [wordMap, setWordMap] = useState({});
+
   const isExpanded = isSearching || result || translationResult || error;
 
   const handleTouchStart = () => {
@@ -205,11 +158,8 @@ export default function App() {
 
   useEffect(() => {
     let targetIcon = 'search';
-    if (isExpanded) {
-      targetIcon = 'x';
-    } else if (mode === 'translate') {
-      targetIcon = 'translate';
-    }
+    if (isExpanded) targetIcon = 'x';
+    else if (mode === 'translate') targetIcon = 'translate';
 
     if (displayIconType !== targetIcon) {
       setIconScale(0);
@@ -229,8 +179,7 @@ export default function App() {
           const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
           const trData = await trRes.json();
           if (Array.isArray(trData) && trData.length > 0) {
-            const random = trData[Math.floor(Math.random() * trData.length)];
-            setTrivia(random);
+            setTrivia(trData[Math.floor(Math.random() * trData.length)]);
           }
         } catch (err) {
           console.log("トリビアの定期取得に失敗！", err);
@@ -271,24 +220,25 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isSearching, isTranslateMode]);
 
-  // タイトルを5回クリックでモーダルを表示
   const handleTitleClick = () => {
     clickCountRef.current += 1;
-
     if (clickCountRef.current === 5) {
       if (!isAdmin) {
         setShowAdminModal(true);
       } else {
-        setIsAdmin(false);
-        setAdminPassword('');
+        if (window.confirm('管理者権限を解除しますか？')) {
+          setIsAdmin(false);
+          setAdminPassword('');
+          sessionStorage.removeItem('isAdmin');
+          sessionStorage.removeItem('adminPassword');
+          setDeleteMode(false);
+          setSelectedIds([]);
+        }
       }
       clickCountRef.current = 0;
     }
-
     clearTimeout(clickTimerRef.current);
-    clickTimerRef.current = setTimeout(() => {
-      clickCountRef.current = 0;
-    }, 1000);
+    clickTimerRef.current = setTimeout(() => { clickCountRef.current = 0; }, 1000);
   };
 
   const handleAdminSuccess = (pass) => {
@@ -300,22 +250,14 @@ export default function App() {
   };
 
   const saveEdit = async () => {
-    if (!result.id) {
-      alert("ドキュメントIDがねえから更新できません！");
-      return;
-    }
+    if (!result.id) { alert("ドキュメントIDがねえから更新できません！"); return; }
     try {
       const res = await fetch(`https://i-tya-dictionary.onrender.com/api/words/${result.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password: adminPassword,
-          meaning: editConcept,
-          reason: editReason
-        })
+        body: JSON.stringify({ password: adminPassword, meaning: editConcept, reason: editReason })
       });
       if (res.ok) {
-        alert("編集完了");
         setResult({ ...result, concept: editConcept, reason: editReason });
         setIsEditing(false);
       } else {
@@ -335,7 +277,6 @@ export default function App() {
         body: JSON.stringify({ password: adminPassword })
       });
       if (res.ok) {
-        alert("消去！");
         resetSearch();
         setDictRefreshKey(k => k + 1);
       } else {
@@ -344,6 +285,33 @@ export default function App() {
     } catch (err) {
       console.error("削除エラー:", err);
     }
+  };
+
+  // 選択トグル（削除モード時にDictionaryListから呼ばれる）
+  const toggleSelectId = (id, word) => {
+    setWordMap(prev => ({ ...prev, [id]: word }));
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const executeBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const names = selectedIds.map(id => `「${wordMap[id]}」`).join('、');
+    if (!window.confirm(`合計${selectedIds.length}この単語を削除していいですか？\n${names}`)) return;
+    for (const id of selectedIds) {
+      try {
+        await fetch(`https://i-tya-dictionary.onrender.com/api/words/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: adminPassword })
+        });
+      } catch (err) {
+        console.error("削除エラー:", err);
+      }
+    }
+    setSelectedIds([]);
+    setWordMap({});
+    setDeleteMode(false);
+    setDictRefreshKey(k => k + 1);
   };
 
   const isTranslateSentence = (text) => {
@@ -358,60 +326,40 @@ export default function App() {
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
     const doReset = () => {
-      setResult(null);
-      setTranslationResult(null);
-      setIsTranslateMode(false);
-      setIsSearching(false);
-      setQuery('');
-      setError(null);
-      setErrorMessage('');
-      setMode('auto');
+      setResult(null); setTranslationResult(null); setIsTranslateMode(false);
+      setIsSearching(false); setQuery(''); setError(null); setErrorMessage(''); setMode('auto');
     };
-
     if (!document.startViewTransition) {
       doReset();
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (targetId) {
-            const el = document.querySelector(`[data-word-id="${targetId}"]`);
-            if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-          }
-        });
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (targetId) {
+          const el = document.querySelector(`[data-word-id="${targetId}"]`);
+          if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
+        }
+      }));
       return;
     }
-
     const transition = document.startViewTransition(doReset);
     transition.updateCallbackDone.then(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (targetId) {
-            const el = document.querySelector(`[data-word-id="${targetId}"]`);
-            if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-          }
-        });
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (targetId) {
+          const el = document.querySelector(`[data-word-id="${targetId}"]`);
+          if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
+        }
+      }));
     });
   };
 
   const executeSearch = async (searchQuery) => {
     safeTransition(() => {
-      setIsSearching(true);
-      setResult(null);
-      setError(null);
-      setTrivia("トリビアを読み込み中...");
+      setIsSearching(true); setResult(null); setError(null); setTrivia("トリビアを読み込み中...");
     });
-
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
       const trData = await trRes.json();
-      if (Array.isArray(trData) && trData.length > 0) {
-        const random = trData[Math.floor(Math.random() * trData.length)];
-        setTrivia(random);
-      }
-    } catch (err) {
-      console.log("初回トリビアの取得に失敗しました。");
-    }
+      if (Array.isArray(trData) && trData.length > 0)
+        setTrivia(trData[Math.floor(Math.random() * trData.length)]);
+    } catch {}
 
     try {
       const res = await fetch('https://i-tya-dictionary.onrender.com/api/generate', {
@@ -419,146 +367,82 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ concept: searchQuery }),
       });
-
       if (res.status === 503) {
         const errData = await res.json().catch(() => ({}));
-        setError('overload');
-        setErrorMessage(errData.error || '');
-        setIsSearching(false);
-        return;
+        setError('overload'); setErrorMessage(errData.error || ''); setIsSearching(false); return;
       }
-
       const data = await res.json();
-
       if (data.status === 'invalid' || data.status === 'invailed') {
-        setError('invalid');
-        setIsSearching(false);
-        return;
+        setError('invalid'); setIsSearching(false); return;
       }
       if (data.error && (data.error.includes('503') || data.error.includes('high demand') || data.error.includes('混雑'))) {
-        setError('overload');
-        setErrorMessage(data.error);
-        setIsSearching(false);
-        return;
+        setError('overload'); setErrorMessage(data.error); setIsSearching(false); return;
       }
 
-      let parsedRoot = "-";
-      let displayWord = "???";
-      let suffix = "a";
-      let posKey = "noun";
-
-      if (data.part_of_speech === "verb") {
-        suffix = "i"; posKey = "verb";
-      } else if (data.part_of_speech === "extender") {
-        suffix = "u"; posKey = "extender";
-      }
+      let parsedRoot = "-", displayWord = "???", suffix = "a", posKey = "noun";
+      if (data.part_of_speech === "verb") { suffix = "i"; posKey = "verb"; }
+      else if (data.part_of_speech === "extender") { suffix = "u"; posKey = "extender"; }
 
       if (data.data) {
         parsedRoot = data.data.noun ? data.data.noun.slice(0, -1) : "-";
         displayWord = data.data[posKey] || data.data.noun || "???";
       } else if (data.status === 'complexed' || data.status === 'semi_complexed') {
-        parsedRoot = "複合概念";
-        displayWord = data.combination || "???";
+        parsedRoot = "複合概念"; displayWord = data.combination || "???";
       } else if (data.status === 'new' || data.status === 'existing') {
-        if (data.root) {
-          parsedRoot = data.root;
-          displayWord = data.root + suffix;
-        }
+        if (data.root) { parsedRoot = data.root; displayWord = data.root + suffix; }
       }
 
       const finishSearching = () => {
         const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
-        const isNewWord = finalStatus === 'new' || data.is_new === true;
-        const isComplexWord = finalStatus === 'complexed' || finalStatus === 'semi_complexed' || data.combination;
-
         if (finalStatus === "new") {
           const effects = ["confetti", "stars", "fireworks"];
           triggerCelebration(effects[Math.floor(Math.random() * effects.length)]);
         }
-
         setResult({
           status: data.status || 'unknown',
           concept: data.meaning || data.meaning_noun || searchQuery,
-          root: parsedRoot,
-          displayWord: displayWord,
+          root: parsedRoot, displayWord,
           reason: data.reason || "解説はまだ準備されていません！",
           reason_noun: data.reason_noun || data.reason || "解説はまだ準備されていません！",
           reason_verb: data.reason_verb || data.reason || "解説はまだ準備されていません！",
           reason_extender: data.reason_extender || data.reason || "解説はまだ準備されていません！",
-          meaning_noun: data.meaning_noun,
-          meaning_verb: data.meaning_verb,
-          meaning_extender: data.meaning_extender,
-          wordData: data.data || (data.root ? {
-            noun: data.root + 'a',
-            verb: data.root + 'i',
-            extender: data.root + 'u'
-          } : null),
-          isNew: isNewWord,
-          isComplex: !isComplexWord
+          meaning_noun: data.meaning_noun, meaning_verb: data.meaning_verb, meaning_extender: data.meaning_extender,
+          wordData: data.data || (data.root ? { noun: data.root + 'a', verb: data.root + 'i', extender: data.root + 'u' } : null),
+          isNew: finalStatus === 'new' || data.is_new === true,
+          id: data.id
         });
         setActivePos(posKey || 'noun');
         setIsSearching(false);
       };
-
       safeTransition(() => {
         setTrivia(data.trivia || "この概念に関するトリビアはまだありません！");
         finishSearching();
       });
-
     } catch (err) {
       console.error("通信エラー！", err);
-      safeTransition(() => {
-        setError('connection');
-        setIsSearching(false);
-      });
+      safeTransition(() => { setError('connection'); setIsSearching(false); });
     }
   };
 
   const executeTranslation = async (sentence) => {
-    safeTransition(() => {
-      setIsSearching(true);
-      setResult(null);
-      setError(null);
-    });
-
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); });
     try {
       const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sentence }),
       });
-
       if (res.status === 503) {
         const errData = await res.json().catch(() => ({}));
-        setError('overload');
-        setErrorMessage(errData.error || '');
-        setIsSearching(false);
-        return;
+        setError('overload'); setErrorMessage(errData.error || ''); setIsSearching(false); return;
       }
-
-      if (!res.ok) {
-        setError('connection');
-        setIsSearching(false);
-        return;
-      }
-
+      if (!res.ok) { setError('connection'); setIsSearching(false); return; }
       const data = await res.json();
-
-      if (!data.translation) {
-        setError('connection');
-        setIsSearching(false);
-        return;
-      }
-
-      safeTransition(() => {
-        setTranslationResult(data);
-        setIsSearching(false);
-      });
-
+      if (!data.translation) { setError('connection'); setIsSearching(false); return; }
+      safeTransition(() => { setTranslationResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("翻訳通信エラー:", err);
-      setError('connection');
-      setIsSearching(false);
+      setError('connection'); setIsSearching(false);
     }
   };
 
@@ -567,17 +451,20 @@ export default function App() {
     if (!query.trim() || isSearching) return;
     clickedWordIdRef.current = null;
     if (mode === 'translate' || isTranslateSentence(query)) {
-      setIsTranslateMode(true);
-      setTranslationResult(null);
-      executeTranslation(query);
+      setIsTranslateMode(true); setTranslationResult(null); executeTranslation(query);
     } else {
-      setIsTranslateMode(false);
-      setTranslationResult(null);
+      setIsTranslateMode(false); setTranslationResult(null);
       safeTransition(() => { executeSearch(query); });
     }
   };
 
   const handleDictionaryClick = (wordData) => {
+    // 削除モード中は詳細画面に飛ばず選択トグル
+    if (deleteMode) {
+      toggleSelectId(wordData.id, wordData.word);
+      return;
+    }
+
     clickedWordIdRef.current = wordData.id;
     window.scrollTo({ top: 0, behavior: 'instant' });
 
@@ -585,7 +472,6 @@ export default function App() {
       setTrivia('');
       let parsedRoot = wordData.fullData?.root || "-";
       if (wordData.type === 'complex') parsedRoot = "複合概念";
-
       setResult({
         status: wordData.type === 'complex' ? 'complexed' : 'existing',
         concept: wordData.meaning,
@@ -605,21 +491,16 @@ export default function App() {
         } : null,
         id: wordData.id
       });
-      setIsSearching(false);
-      setError(null);
+      setIsSearching(false); setError(null);
     };
 
-    if (document.startViewTransition) {
-      document.startViewTransition(showDetail);
-    } else {
-      showDetail();
-    }
+    if (document.startViewTransition) document.startViewTransition(showDetail);
+    else showDetail();
   };
 
   const triggerCelebration = (type) => {
     const duration = 3 * 1000;
     const end = Date.now() + duration;
-
     if (type === 'confetti') {
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#70ff70', '#ffffff', '#4a1c53'] });
     } else if (type === 'stars') {
@@ -628,9 +509,7 @@ export default function App() {
         confetti({ ...defaults, particleCount: 40, scalar: 1.2, shapes: ['star'] });
         confetti({ ...defaults, particleCount: 10, scalar: 0.75, shapes: ['circle'] });
       };
-      setTimeout(shoot, 0);
-      setTimeout(shoot, 100);
-      setTimeout(shoot, 200);
+      setTimeout(shoot, 0); setTimeout(shoot, 100); setTimeout(shoot, 200);
     } else if (type === 'fireworks') {
       (function frame() {
         confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#70ff70'] });
@@ -642,40 +521,25 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* 管理者ログインモーダル */}
       {showAdminModal && (
-        <AdminLoginModal
-          onClose={() => setShowAdminModal(false)}
-          onSuccess={handleAdminSuccess}
-        />
+        <AdminLoginModal onClose={() => setShowAdminModal(false)} onSuccess={handleAdminSuccess} />
       )}
 
-      {/* 管理者バッジ */}
+      {/* 管理者バッジ（アイコンのみ） */}
       {isAdmin && (
-        <div
-          style={{
-            position: 'fixed', top: '12px', right: '12px', zIndex: 100,
-            background: '#1a3a5c',
-            border: '2px solid #ffe066',
-            borderRadius: '20px',
-            padding: '5px 13px',
-            fontSize: '0.75rem',
-            color: '#ffe066',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
+        <button
+          className="admin-badge-btn"
           onClick={() => {
             if (window.confirm('管理者権限を解除しますか？')) {
-              setIsAdmin(false);
-              setAdminPassword('');
-              sessionStorage.removeItem('isAdmin');
-              sessionStorage.removeItem('adminPassword');
+              setIsAdmin(false); setAdminPassword('');
+              sessionStorage.removeItem('isAdmin'); sessionStorage.removeItem('adminPassword');
+              setDeleteMode(false); setSelectedIds([]);
             }
           }}
-          title="クリックで権限解除"
+          title="管理者モード（クリックで解除）"
         >
-          管理者モード
-        </div>
+          <ShieldCheck size={22} strokeWidth={2} />
+        </button>
       )}
 
       <div className={`content-wrapper ${isExpanded ? 'moved-up' : ''}`}>
@@ -688,7 +552,6 @@ export default function App() {
 
         <form id="search-form" onSubmit={handleSearch} className="search-form">
           <div className={`morph-box ${isExpanded ? 'expanded' : ''} ${error ? 'is-error' : ''}`}>
-
             <input
               type="text"
               className={`morph-input ${isExpanded ? 'hidden' : ''}`}
@@ -697,9 +560,7 @@ export default function App() {
               onChange={(e) => {
                 const newText = e.target.value;
                 setQuery(newText);
-                if (newText.trim() !== '') {
-                  setMode(isTranslateSentence(newText) ? 'translate' : 'word');
-                }
+                if (newText.trim() !== '') setMode(isTranslateSentence(newText) ? 'translate' : 'word');
               }}
               disabled={isExpanded}
             />
@@ -728,7 +589,7 @@ export default function App() {
               <div className="inner-result fade-in-up">
                 {isEditing ? (
                   <div className="admin-edit-form">
-                    <div className="admin-edit-title">🔧 管理者データベース編集モード</div>
+                    <div className="admin-edit-title">管理者データベース編集</div>
                     <input
                       className="admin-edit-input"
                       value={editConcept}
@@ -742,12 +603,8 @@ export default function App() {
                       placeholder="解説を編集"
                     />
                     <div className="admin-edit-actions">
-                      <button type="button" className="admin-save-btn" onClick={saveEdit}>
-                        上書き保存
-                      </button>
-                      <button type="button" className="admin-cancel-btn" onClick={() => setIsEditing(false)}>
-                        キャンセル
-                      </button>
+                      <button type="button" className="admin-save-btn" onClick={saveEdit}>上書き保存</button>
+                      <button type="button" className="admin-cancel-btn" onClick={() => setIsEditing(false)}>キャンセル</button>
                     </div>
                   </div>
                 ) : (
@@ -762,7 +619,6 @@ export default function App() {
                         {result.status === 'new' && <span className="badge-new">新規</span>}
                         {(result.status === 'complexed' || result.status === 'semi_complexed') && <span className="badge-compound">複合概念</span>}
                       </div>
-
                       {result.status !== 'complexed' && result.wordData && (
                         <select
                           className="pos-select"
@@ -771,11 +627,7 @@ export default function App() {
                             const el = document.querySelector('.word-display');
                             const el2 = document.querySelector('.reason-text');
                             [el, el2].forEach(el => {
-                              if (el) {
-                                el.style.animation = 'none';
-                                el.offsetHeight;
-                                el.style.animation = '';
-                              }
+                              if (el) { el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
                             });
                             setActivePos(e.target.value);
                             e.target.blur();
@@ -797,8 +649,7 @@ export default function App() {
                         ? result.reason
                         : (activePos === 'noun' ? (result.reason_noun || result.reason)
                           : activePos === 'verb' ? (result.reason_verb || result.reason)
-                          : (result.reason_extender || result.reason))
-                      }
+                          : (result.reason_extender || result.reason))}
                     </div>
 
                     <div className="share-buttons">
@@ -821,7 +672,11 @@ export default function App() {
                           <Settings size={20} strokeWidth={2.5} />
                         </button>
                       )}
-
+                      {isAdmin && result.id && (
+                        <button className="index-btn admin-btn" onClick={() => deleteWord(result.id, result.displayWord)}>
+                          <X size={20} strokeWidth={2.5} />
+                        </button>
+                      )}
                       <button className="index-btn" onClick={() => {
                         const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
                         navigator.clipboard.writeText(url);
@@ -831,11 +686,9 @@ export default function App() {
                       }}>
                         {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
                       </button>
-
                       <button className="index-btn" onClick={() => {
                         const url = `${window.location.origin}?q=${encodeURIComponent(result.concept)}`;
-                        const isNew = result.status === 'new';
-                        const text = isNew
+                        const text = result.status === 'new'
                           ? `「${result.concept}」をi-tyaに登録しました！\n「${result.displayWord}」\n\n#i_tya #NT函館`
                           : `「${result.concept}」をi-tyaで調べました！\n「${result.displayWord}」\n\n#i_tya #NT函館`;
                         window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
@@ -861,19 +714,15 @@ export default function App() {
                   {translationResult.breakdown?.map((item, i) => (
                     <div key={i} style={{ marginBottom: '8px' }}>
                       <span style={{ opacity: 0.6 }}>{item.japanese}</span>
-                      {' → '}
-                      <strong>{item.itya}</strong>
-                      {item.status === 'new' && (
-                        <span className="badge-new" style={{ fontSize: '0.8rem', marginLeft: '6px' }}>新規</span>
-                      )}
+                      {' → '}<strong>{item.itya}</strong>
+                      {item.status === 'new' && <span className="badge-new" style={{ fontSize: '0.8rem', marginLeft: '6px' }}>新規</span>}
                     </div>
                   ))}
                 </div>
                 <div className="share-buttons">
                   <button className="index-btn" onClick={() => {
                     navigator.clipboard.writeText(translationResult.translation);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
+                    setCopied(true); setTimeout(() => setCopied(false), 2000);
                   }}>
                     {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
                   </button>
@@ -887,11 +736,9 @@ export default function App() {
               </div>
             )}
 
-            {/* 改善されたエラー表示 */}
             {error && !isSearching && (
               <ErrorDisplay error={error} errorMessage={errorMessage} />
             )}
-
           </div>
 
           <button
@@ -903,21 +750,10 @@ export default function App() {
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onClick={(e) => {
-              if (isLongPress.current) {
-                e.preventDefault();
-                isLongPress.current = false;
-                return;
-              }
-              if (isExpanded) {
-                e.preventDefault();
-                resetSearch();
-              }
+              if (isLongPress.current) { e.preventDefault(); isLongPress.current = false; return; }
+              if (isExpanded) { e.preventDefault(); resetSearch(); }
             }}
-            style={{
-              userSelect: 'none',
-              WebkitTouchCallout: 'none',
-              WebkitUserSelect: 'none'
-            }}
+            style={{ userSelect: 'none', WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
           >
             <span style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -936,12 +772,45 @@ export default function App() {
         {!isExpanded && (
           <div className="dictionary-wrapper fade-in-up">
             <p className="total-count">{total}語収録中</p>
+
+            {/* 管理者削除モードツールバー */}
+            {isAdmin && (
+              <div className="admin-delete-toolbar">
+                {!deleteMode ? (
+                  <button
+                    className="admin-delete-mode-btn"
+                    onClick={() => { setDeleteMode(true); setSelectedIds([]); setWordMap({}); }}
+                  >
+                    削除モード
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="admin-delete-mode-btn admin-delete-mode-btn--cancel"
+                      onClick={() => { setDeleteMode(false); setSelectedIds([]); setWordMap({}); }}
+                    >
+                      キャンセル
+                    </button>
+                    {selectedIds.length > 0 && (
+                      <button
+                        className="admin-delete-mode-btn admin-delete-mode-btn--confirm"
+                        onClick={executeBulkDelete}
+                      >
+                        合計{selectedIds.length}個を削除
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             <DictionaryList
               key={dictRefreshKey}
               onWordClick={handleDictionaryClick}
               onTotalLoaded={(count) => setTotal(count)}
               isAdmin={isAdmin}
-              onDelete={deleteWord}
+              deleteMode={deleteMode}
+              selectedIds={selectedIds}
             />
           </div>
         )}
@@ -953,7 +822,6 @@ export default function App() {
         >
           <ArrowUp size={28} strokeWidth={3.5} />
         </button>
-
       </div>
     </div>
   );
