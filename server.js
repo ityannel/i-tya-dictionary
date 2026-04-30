@@ -8,16 +8,16 @@ const fs = require('fs');
 const path = require('path');
 
 // ─────────────────────────────────────────────
-//  定数
+//  Constants
 // ─────────────────────────────────────────────
 const CACHE_FILE = path.join(__dirname, 'cache.json');
-const CACHE_TTL = 12 * 60 * 60 * 1000;   // 12時間
-const TRIVIA_TTL = 60 * 60 * 1000;        // 1時間
+const CACHE_TTL = 12 * 60 * 60 * 1000;   // 12 hours
+const TRIVIA_TTL = 60 * 60 * 1000;        // 1 hour
 const AI_MODEL = "gemini-3-flash-preview";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your_secret_password";
 
 // ─────────────────────────────────────────────
-//  2層キャッシュ
+//  Two-layer cache
 // ─────────────────────────────────────────────
 const memCache = {
   words: [],
@@ -36,9 +36,9 @@ function saveCacheFile() {
       loadedAt: memCache.loadedAt,
       triviaLoadedAt: memCache.triviaLoadedAt
     }), 'utf8');
-    console.log('[CACHE] cache.json に保存しました');
+    console.log('[CACHE] Saved to cache.json');
   } catch (e) {
-    console.warn('[CACHE] cache.json の保存に失敗:', e.message);
+    console.warn('[CACHE] Failed to save cache.json:', e.message);
   }
 }
 
@@ -53,20 +53,20 @@ function loadCacheFile() {
         memCache.trivias = raw.trivias || [];
         memCache.loadedAt = raw.loadedAt || 0;
         memCache.triviaLoadedAt = raw.triviaLoadedAt || 0;
-        console.log(`[CACHE] cache.json から復元 (${memCache.words.length}語, ${memCache.complex.length}複合語, 経過${Math.round(age / 60000)}分)`);
+        console.log(`[CACHE] Restored from cache.json (${memCache.words.length} words, ${memCache.complex.length} complex, ${Math.round(age / 60000)} min elapsed)`);
         return true;
       } else {
-        console.log('[CACHE] cache.json が古いため無視します（TTL超過）');
+        console.log('[CACHE] cache.json is stale, ignoring (TTL exceeded)');
       }
     }
   } catch (e) {
-    console.warn('[CACHE] cache.json の読み込みに失敗:', e.message);
+    console.warn('[CACHE] Failed to load cache.json:', e.message);
   }
   return false;
 }
 
 async function refreshCacheFromFirebase() {
-  console.log('[CACHE] Firebaseから全件取得開始...');
+  console.log('[CACHE] Fetching all data from Firebase...');
   const [wordsSnap, complexSnap, triviaSnap] = await Promise.all([
     db.collection('itya_words').get(),
     db.collection('itya_complex').get(),
@@ -78,7 +78,7 @@ async function refreshCacheFromFirebase() {
   memCache.loadedAt = Date.now();
   memCache.triviaLoadedAt = Date.now();
   saveCacheFile();
-  console.log(`[CACHE] 取得完了: ${memCache.words.length}語, ${memCache.complex.length}複合語`);
+  console.log(`[CACHE] Fetch complete: ${memCache.words.length} words, ${memCache.complex.length} complex`);
 }
 
 let refreshingPromise = null;
@@ -98,7 +98,7 @@ async function ensureTriviaCache() {
 }
 
 // ─────────────────────────────────────────────
-//  キャッシュユーティリティ
+//  Cache utilities
 // ─────────────────────────────────────────────
 function findInCacheByConceptJa(concept) {
   const word = memCache.words.find(w => w.concept_ja === concept);
@@ -151,18 +151,15 @@ function buildDictionaryEntries() {
   const words = memCache.words
     .filter(w => w.word_noun || w.word_verb || w.word_extender)
     .map(w => {
-      // 代表形と品詞を決定（noun優先）
-      let word, pos;
-      if (w.word_noun)      { word = w.word_noun;      pos = 'noun'; }
-      else if (w.word_verb) { word = w.word_verb;       pos = 'verb'; }
-      else                  { word = w.word_extender;   pos = 'extender'; }
+      const base = w.word_noun || w.word_verb || w.word_extender;
+      // root = strip trailing vowel (keep as-is if single char)
+      const root = base.length <= 1 ? base : base.slice(0, -1);
       return {
         id: w.id,
         type: 'word',
-        word,
-        pos,                          // 'noun' | 'verb' | 'extender'
-        meaning: w.concept_ja || '意味不明',
-        hasAllForms: !!(w.word_noun && w.word_verb && w.word_extender),
+        word: base,
+        root,            // e.g. "pat" → displayed as "pat-"
+        meaning: w.concept_ja || 'Unknown',
         fullData: w
       };
     });
@@ -170,29 +167,28 @@ function buildDictionaryEntries() {
     .filter(c => c.combination)
     .map(c => ({
       id: c.id,
-      type: c.words ? 'semi_complex' : 'complex', // semi_complexedか純complexedか区別
+      type: 'complex',
       word: c.combination,
-      pos: null,
-      meaning: c.concept_ja || '意味不明',
-      hasAllForms: false,
+      root: null,        // no root for complex words
+      meaning: c.concept_ja || 'Unknown',
       fullData: c
     }));
   return [...words, ...complex];
 }
 
 // ─────────────────────────────────────────────
-//  起動時キャッシュ初期化
+//  Initialize cache on startup
 // ─────────────────────────────────────────────
 loadCacheFile();
 
 // ─────────────────────────────────────────────
-//  インフライトマップ（重複リクエスト防止）
+//  In-flight map (deduplication)
 // ─────────────────────────────────────────────
 const inflightGenerate = new Map();
 const inflightTranslate = new Map();
 
 // ─────────────────────────────────────────────
-//  Firebase 初期化
+//  Firebase initialization
 // ─────────────────────────────────────────────
 const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
@@ -200,7 +196,7 @@ const db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 
 // ─────────────────────────────────────────────
-//  ミドルウェア（一度だけ設定）
+//  Middleware (registered once)
 // ─────────────────────────────────────────────
 app.use(express.json());
 
@@ -224,7 +220,7 @@ app.use(cors({
 }));
 
 // ─────────────────────────────────────────────
-//  AI 設定
+//  AI setup
 // ─────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -325,7 +321,7 @@ const ityaRules = `
   "root_word.2": "（既存の語幹）"
 }
 
-5. 意味不明・文章・そのほかのルール違反で生成を拒否する場合:
+5. Unknown・文章・そのほかのルール違反で生成を拒否する場合:
 
 {
   "status": "invalid",
@@ -448,10 +444,10 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[AI] 試行 ${attempt}/${maxRetries}`);
+      console.log(`[AI] Attempt ${attempt}/${maxRetries}`);
       const result = await model.generateContent(prompt);
       const text = result.response.text().replace(/```json|```/g, '').trim();
-      console.log(`[AI] レスポンス受信 (${text.length}文字)`);
+      console.log(`[AI] Response received (${text.length} chars)`);
       const parsed = JSON.parse(text);
       if (parsed.root) parsed.root = parsed.root.toLowerCase();
       if (parsed.status === 'new') validateRoot(parsed.root);
@@ -459,14 +455,14 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
     } catch (err) {
       lastError = err;
       // 生のエラーを必ずログに出す
-      console.error(`[AI] 試行${attempt}失敗 - ${err.constructor.name}: ${err.message}`);
-      if (err.status) console.error(`[AI] HTTPステータス: ${err.status}`);
+      console.error(`[AI] Attempt${attempt} failed - ${err.constructor.name}: ${err.message}`);
+      if (err.status) console.error(`[AI] HTTP status: ${err.status}`);
 
       // JSONパース or 語幹バリデーションエラーのみリトライ
       const isRetryable = err instanceof SyntaxError || err.message.includes('語幹') || err.message.includes('音韻') || err.message.includes('レベル1') || err.message.includes('語幹が空');
       // APIエラー（429/5xx等）はリトライせず即投げ
       if (!isRetryable || attempt >= maxRetries) throw err;
-      console.warn(`[AI] バリデーションエラー。リトライします...`);
+      console.warn(`[AI] Validation error. Retrying...`);
       await new Promise(r => setTimeout(r, 1000));
     }
   }
@@ -474,22 +470,22 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
 }
 
 // ─────────────────────────────────────────────
-//  バリデーション
+//  Validation
 // ─────────────────────────────────────────────
 function validateRoot(root) {
-  if (!root) throw new Error('語幹が空！');
+  if (!root) throw new Error('Root is empty.');
   const normalizedRoot = root.toLowerCase();
-  if (/\s/.test(normalizedRoot)) throw new Error(`語幹にスペース！ [${root}]`);
-  if (/[aiu]$/.test(normalizedRoot)) throw new Error(`語幹の末尾が母音！: [${root}]`);
+  if (/\s/.test(normalizedRoot)) throw new Error(`Root contains whitespace: [${root}]`);
+  if (/[aiu]$/.test(normalizedRoot)) throw new Error(`Root ends with a vowel: [${root}]`);
   const testWord = normalizedRoot + 'a';
   const ityaRegex = /^(?:[hklmnpst]?[wy]?[aiu])+$/;
-  if (!ityaRegex.test(testWord)) throw new Error(`i-tyaの音韻規則に違反: [${root}]`);
+  if (!ityaRegex.test(testWord)) throw new Error(`Violates i-tya phonological rules: [${root}]`);
   const vowelCount = (testWord.match(/[aiu]/g) || []).length;
-  if (vowelCount <= 1) throw new Error(`レベル1の単語を作ったよ！: [${root}]`);
+  if (vowelCount <= 1) throw new Error(`Generated a level-1 word: [${root}]`);
 }
 
 // ─────────────────────────────────────────────
-//  i-tya独自ソート
+//  i-tya custom sort
 // ─────────────────────────────────────────────
 const ityaOrder = { 'a': 1, 'i': 2, 'u': 3, 'h': 4, 'k': 5, 'l': 6, 'm': 7, 'n': 8, 'p': 9, 's': 10, 't': 11, 'w': 12, 'y': 13 };
 
@@ -506,7 +502,7 @@ function sortItyaWords(a, b) {
 }
 
 // ─────────────────────────────────────────────
-//  ルート定義
+//  Route definitions
 // ─────────────────────────────────────────────
 
 // 管理者認証
@@ -534,13 +530,13 @@ app.get('/api/trivias', async (req, res) => {
 // トリビア追加
 app.post('/api/trivias', async (req, res) => {
   const { content, password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: 'NO権限！' });
+  if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: 'Unauthorized.' });
   try {
     await db.collection('itya_trivia').add({ content, createdAt: new Date() });
     if (content) { memCache.trivias.push(content); saveCacheFile(); }
-    res.json({ message: 'トリビア追加（笑）' });
+    res.json({ message: 'Trivia added.' });
   } catch (error) {
-    console.error('[POST /api/trivias]', error);
+    console.error('[POST /api/trivias] Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -548,10 +544,10 @@ app.post('/api/trivias', async (req, res) => {
 // 単語生成
 app.post('/api/generate', async (req, res) => {
   const { concept } = req.body;
-  if (!concept) return res.status(400).json({ status: 'invalid', reason: '入力が空か、無効な単語です！' });
+  if (!concept) return res.status(400).json({ status: 'invalid', reason: 'Input is empty or invalid.' });
 
   try {
-    console.log(`[/api/generate] '${concept}' の単語を検索中`);
+    console.log(`[/api/generate] '${concept}' - searching`);
     await ensureCache();
 
     // キャッシュヒット
@@ -559,34 +555,34 @@ app.post('/api/generate', async (req, res) => {
     if (cached) {
       if (cached.type === 'word') {
         const w = cached.data;
-        console.log(`[/api/generate] キャッシュヒット（単語）: ${w.word_noun} (ID: ${w.id})`);
+        console.log(`[/api/generate] Cache hit (word): ${w.word_noun} (ID: ${w.id})`);
         return res.json({
           status: 'existing', id: w.id,
           data: { noun: w.word_noun, verb: w.word_verb, extender: w.word_extender },
           meaning_noun: w.meaning_noun || '', meaning_verb: w.meaning_verb || '', meaning_extender: w.meaning_extender || '',
-          reason: w.reason || '既存の単語です。',
-          reason_noun: w.reason_noun || w.reason || '解説がありません。',
-          reason_verb: w.reason_verb || w.reason || '解説がありません。',
-          reason_extender: w.reason_extender || w.reason || '解説がありません。'
+          reason: w.reason || 'This word already exists.',
+          reason_noun: w.reason_noun || w.reason || 'No description available.',
+          reason_verb: w.reason_verb || w.reason || 'No description available.',
+          reason_extender: w.reason_extender || w.reason || 'No description available.'
         });
       }
       if (cached.type === 'complex') {
         const c = cached.data;
-        console.log(`[/api/generate] キャッシュヒット（複合語）: ${c.combination} (ID: ${c.id})`);
+        console.log(`[/api/generate] Cache hit (complex): ${c.combination} (ID: ${c.id})`);
         return res.json({
           status: 'complexed', id: c.id,
           meaning: c.concept_ja, combination: c.combination,
           complexity_type: c.complexity_type || 'semantic',
           components: c.components || [],
           syntax_logic: c.syntax_logic,
-          reason: c.reason || '過去に生成された複合概念です。'
+          reason: c.reason || 'A previously generated complex concept.'
         });
       }
     }
 
     // インフライト（並走リクエスト）
     if (inflightGenerate.has(concept)) {
-      console.log(`[/api/generate] '${concept}' は生成中。結果を待ちます...`);
+      console.log(`[/api/generate] '${concept}' - already generating, waiting...`);
       return res.json(await inflightGenerate.get(concept));
     }
 
@@ -609,14 +605,14 @@ app.post('/api/generate', async (req, res) => {
             status: 'existing', id: found.id, meaning: found.concept_ja,
             data: { noun: found.word_noun, verb: found.word_verb, extender: found.word_extender },
             meaning_noun: found.meaning_noun || '', meaning_verb: found.meaning_verb || '', meaning_extender: found.meaning_extender || '',
-            reason_noun: found.reason_noun || found.reason || '解説がありません。',
-            reason_verb: found.reason_verb || found.reason || '解説がありません。',
-            reason_extender: found.reason_extender || found.reason || '解説がありません。'
+            reason_noun: found.reason_noun || found.reason || 'No description available.',
+            reason_verb: found.reason_verb || found.reason || 'No description available.',
+            reason_extender: found.reason_extender || found.reason || 'No description available.'
           };
         }
       }
 
-      // Firebaseへ書き込み
+      // Write to Firebase
       const batch = db.batch();
 
       if (aiRes.status === 'new') {
@@ -653,7 +649,7 @@ app.post('/api/generate', async (req, res) => {
                 concept_ja: w.meaning || `(Part of ${concept})`,
                 meaning: w.meaning || `(Part of ${concept})`,
                 word_noun: w.root + 'a', word_verb: w.root + 'i', word_extender: w.root + 'u',
-                reason: w.reason || '複合語の構成要素として生成',
+                reason: w.reason || 'Generated as a component of a complex word.',
                 level: 2, created_at: admin.firestore.FieldValue.serverTimestamp()
               };
               batch.set(partDoc, partData);
@@ -690,7 +686,7 @@ app.post('/api/generate', async (req, res) => {
 
   } catch (error) {
     inflightGenerate.delete(concept);
-    console.error('[/api/generate] エラー:', error.message);
+    console.error('[/api/generate] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -698,13 +694,13 @@ app.post('/api/generate', async (req, res) => {
 // 翻訳
 app.post('/api/translate', async (req, res) => {
   const { sentence } = req.body;
-  if (!sentence) return res.status(400).json({ error: '文章が空！' });
+  if (!sentence) return res.status(400).json({ error: 'Sentence is empty.' });
 
   try {
     await ensureCache();
 
     if (inflightTranslate.has(sentence)) {
-      console.log('[/api/translate] 並走検出。結果を待ちます...');
+      console.log('[/api/translate] Duplicate request detected, waiting...');
       return res.json(await inflightTranslate.get(sentence));
     }
 
@@ -729,7 +725,7 @@ app.post('/api/translate', async (req, res) => {
               w.concept_ja === item.japanese || w.word_noun === item.root + 'a'
             );
             if (alreadyExists) {
-              console.log(`[/api/translate] 新語スキップ（重複）: ${item.root}`);
+              console.log(`[/api/translate] Skipping duplicate new word: ${item.root}`);
               continue;
             }
             const newDoc = db.collection('itya_words').doc();
@@ -744,7 +740,7 @@ app.post('/api/translate', async (req, res) => {
             addWordToCache(newDoc.id, wordData);
             hasNewWords = true;
           } catch (e) {
-            console.warn(`[/api/translate] 語幹エラー: ${item.root} - ${e.message}`);
+            console.warn(`[/api/translate] Root validation error: ${item.root} - ${e.message}`);
           }
         }
       }
@@ -762,7 +758,7 @@ app.post('/api/translate', async (req, res) => {
 
   } catch (error) {
     inflightTranslate.delete(sentence);
-    console.error('[/api/translate] エラー:', error.message);
+    console.error('[/api/translate] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -788,7 +784,7 @@ app.get('/api/dictionary', async (req, res) => {
 
     res.json({ words: paginatedWords, hasMore: startIndex + limit < allEntries.length, total });
   } catch (error) {
-    console.error('[/api/dictionary] エラー:', error.message);
+    console.error('[/api/dictionary] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -797,7 +793,7 @@ app.get('/api/dictionary', async (req, res) => {
 app.put('/api/words/:wordId', async (req, res) => {
   const { wordId } = req.params;
   const { password, meaning, reason } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: '権限がねえぞ！' });
+  if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: 'Unauthorized.' });
 
   try {
     let docRef = db.collection('itya_words').doc(wordId);
@@ -810,14 +806,14 @@ app.put('/api/words/:wordId', async (req, res) => {
       if (doc.exists) {
         await docRef.update({ concept_ja: meaning, reason, updated_at: admin.firestore.FieldValue.serverTimestamp() });
       } else {
-        return res.status(404).json({ error: '該当する単語が見つからねえ！' });
+        return res.status(404).json({ error: 'Word not found.' });
       }
     }
     const target = memCache.words.find(w => w.id === wordId) || memCache.complex.find(c => c.id === wordId);
     if (target) { target.concept_ja = meaning; target.reason = reason; saveCacheFile(); }
-    res.json({ message: '更新成功だ！' });
+    res.json({ message: 'Update successful.' });
   } catch (error) {
-    console.error('[PUT /api/words]', error);
+    console.error('[PUT /api/words] Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -826,7 +822,7 @@ app.put('/api/words/:wordId', async (req, res) => {
 app.delete('/api/words/:wordId', async (req, res) => {
   const { wordId } = req.params;
   const { password } = req.body;
-  if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: 'お前に消す権限はねえ！' });
+  if (password !== ADMIN_PASSWORD) return res.status(403).json({ error: 'Unauthorized.' });
 
   try {
     let docRef = db.collection('itya_words').doc(wordId);
@@ -839,21 +835,21 @@ app.delete('/api/words/:wordId', async (req, res) => {
       if (doc.exists) {
         await docRef.delete();
       } else {
-        return res.status(404).json({ error: '消す単語が見つからねえ！' });
+        return res.status(404).json({ error: 'Word not found.' });
       }
     }
     removeFromCache(wordId);
-    res.json({ message: 'データベースから抹消したぜ！' });
+    res.json({ message: 'Deleted successfully.' });
   } catch (error) {
-    console.error('[DELETE /api/words]', error);
+    console.error('[DELETE /api/words] Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // ─────────────────────────────────────────────
-//  サーバー起動
+//  Start server
 // ─────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`i-tya dictionary is running on port ${PORT}`);
+  console.log(`i-tya dictionary running on port ${PORT}`);
 });
