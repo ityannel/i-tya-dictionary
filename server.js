@@ -790,6 +790,7 @@ app.post('/api/generate', async (req, res) => {
     }
 
   } catch (error) {
+    console.error("[RAW ERROR]", err.message, err.status, JSON.stringify(err));
     // inflightGenerate のクリーンアップ（finally の外側のエラー用）
     inflightGenerate.delete(concept);
     console.error("エラー！:", error);

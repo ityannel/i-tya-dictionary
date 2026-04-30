@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
 import DictionaryList from './DictionaryList';
+import anoSvg from './ano.svg';
 
 // ─── 管理者ログインモーダル ───
 function AdminLoginModal({ onClose, onSuccess }) {
@@ -124,6 +125,16 @@ export default function App() {
   const [iconScale, setIconScale] = useState(1);
   const [displayIconType, setDisplayIconType] = useState('search');
   const [errorMessage, setErrorMessage] = useState('');
+  const [anoClicked, setAnoClicked] = useState(false);
+
+  const handleAnoClick = () => {
+    if (anoClicked) return;
+    setAnoClicked(true);
+    setTimeout(() => {
+      window.open('https://swa-wold.web.app/3d-space.html', '_blank');
+      setAnoClicked(false);
+    }, 900);
+  };
 
   // 削除モード
   const [deleteMode, setDeleteMode] = useState(false);
@@ -543,12 +554,22 @@ export default function App() {
       )}
 
       <div className={`content-wrapper ${isExpanded ? 'moved-up' : ''}`}>
-        <h1
-          onClick={handleTitleClick}
-          className={`main-title ${isExpanded ? 'squashed' : ''} ${error ? 'is-error' : ''}`}
-        >
-          Swa i-tya!
-        </h1>
+        <div className="title-row">
+          <h1
+            onClick={handleTitleClick}
+            className={`main-title ${isExpanded ? 'squashed' : ''} ${error ? 'is-error' : ''}`}
+          >
+            Swa i-tya!
+          </h1>
+          <button
+            className={`ano-btn ${anoClicked ? 'ano-btn--flying' : ''}`}
+            onClick={handleAnoClick}
+            aria-label="ano world へ"
+            title="ano world へ飛ぶ！"
+          >
+            <img src={anoSvg} alt="ano" className="ano-img" />
+          </button>
+        </div>
 
         <form id="search-form" onSubmit={handleSearch} className="search-form">
           <div className={`morph-box ${isExpanded ? 'expanded' : ''} ${error ? 'is-error' : ''}`}>
