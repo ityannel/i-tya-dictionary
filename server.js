@@ -13,7 +13,7 @@ const path = require('path');
 const CACHE_FILE = path.join(__dirname, 'cache.json');
 const CACHE_TTL = 12 * 60 * 60 * 1000;   // 12時間
 const TRIVIA_TTL = 60 * 60 * 1000;        // 1時間
-const AI_MODEL = "gemini-3.1-pro-preview";
+const AI_MODEL = "gemini-3-flash-preview";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your_secret_password";
 
 // ─────────────────────────────────────────────
