@@ -81,9 +81,12 @@ async function refreshCacheFromFirebase() {
   console.log(`[CACHE] 取得完了: ${memCache.words.length}語, ${memCache.complex.length}複合語`);
 }
 
+let refreshingPromise = null;
 async function ensureCache() {
   if (memCache.loadedAt > 0 && (Date.now() - memCache.loadedAt) < CACHE_TTL) return;
-  await refreshCacheFromFirebase();
+  if (refreshingPromise) return refreshingPromise;
+  refreshingPromise = refreshCacheFromFirebase().finally(() => { refreshingPromise = null; });
+  return refreshingPromise;
 }
 
 async function ensureTriviaCache() {
@@ -147,20 +150,31 @@ function buildWordListStr() {
 function buildDictionaryEntries() {
   const words = memCache.words
     .filter(w => w.word_noun || w.word_verb || w.word_extender)
-    .map(w => ({
-      id: w.id,
-      type: 'word',
-      word: w.word_noun || w.word_verb || w.word_extender,
-      meaning: w.concept_ja || '意味不明',
-      fullData: w
-    }));
+    .map(w => {
+      // 代表形と品詞を決定（noun優先）
+      let word, pos;
+      if (w.word_noun)      { word = w.word_noun;      pos = 'noun'; }
+      else if (w.word_verb) { word = w.word_verb;       pos = 'verb'; }
+      else                  { word = w.word_extender;   pos = 'extender'; }
+      return {
+        id: w.id,
+        type: 'word',
+        word,
+        pos,                          // 'noun' | 'verb' | 'extender'
+        meaning: w.concept_ja || '意味不明',
+        hasAllForms: !!(w.word_noun && w.word_verb && w.word_extender),
+        fullData: w
+      };
+    });
   const complex = memCache.complex
     .filter(c => c.combination)
     .map(c => ({
       id: c.id,
-      type: 'complex',
+      type: c.words ? 'semi_complex' : 'complex', // semi_complexedか純complexedか区別
       word: c.combination,
+      pos: null,
       meaning: c.concept_ja || '意味不明',
+      hasAllForms: false,
       fullData: c
     }));
   return [...words, ...complex];
@@ -414,9 +428,9 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
       "meaning_noun": "新語の場合のみ",
       "meaning_verb": "新語の場合のみ",
       "meaning_extender": "新語の場合のみ",
-      "reason_noun": "新語の場合のみ【意味】\n\n【詞型の展開】\n\n【語源・由来】",
-      "reason_verb": "新語の場合のみ【意味】\n\n【詞型の展開】",
-      "reason_extender": "新語の場合のみ【意味】\n\n【詞型の展開】"
+      "reason_noun": "新語の場合のみ。以下フォーマットで2文以上記述せよ: 【意味】\n（名詞としての意味）\n\n【詞型の展開】\n（名詞の場合の使われ方）\n\n【語源・由来】\n（由来・音の選択理由）",
+      "reason_verb": "新語の場合のみ。以下フォーマットで2文以上記述せよ: 【意味】\n（動詞としての意味）\n\n【詞型の展開】\n（動詞の場合の使われ方）",
+      "reason_extender": "新語の場合のみ。以下フォーマットで2文以上記述せよ: 【意味】\n（拡張詞としての意味）\n\n【詞型の展開】\n（拡張詞の場合の使われ方）"
     }
   ]
 }
@@ -448,16 +462,12 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
       console.error(`[AI] 試行${attempt}失敗 - ${err.constructor.name}: ${err.message}`);
       if (err.status) console.error(`[AI] HTTPステータス: ${err.status}`);
 
-      // JSON/バリデーションエラーならリトライ
-      const isValidationError = err instanceof SyntaxError || err.message.includes('語幹') || err.message.includes('音韻') || err.message.includes('レベル1');
-      if (isValidationError && attempt < maxRetries) {
-        console.warn(`[AI] バリデーションエラー。リトライします...`);
-        await new Promise(r => setTimeout(r, 1000));
-        continue;
-      }
-
-      // APIエラー（4xx/5xx）はリトライせず即投げ
-      throw err;
+      // JSONパース or 語幹バリデーションエラーのみリトライ
+      const isRetryable = err instanceof SyntaxError || err.message.includes('語幹') || err.message.includes('音韻') || err.message.includes('レベル1') || err.message.includes('語幹が空');
+      // APIエラー（429/5xx等）はリトライせず即投げ
+      if (!isRetryable || attempt >= maxRetries) throw err;
+      console.warn(`[AI] バリデーションエラー。リトライします...`);
+      await new Promise(r => setTimeout(r, 1000));
     }
   }
   throw lastError;
@@ -772,9 +782,9 @@ app.get('/api/dictionary', async (req, res) => {
     }
     allEntries.sort(sortItyaWords);
 
+    const total = allEntries.length;
     const startIndex = (page - 1) * limit;
     const paginatedWords = allEntries.slice(startIndex, startIndex + limit);
-    const total = buildDictionaryEntries().length;
 
     res.json({ words: paginatedWords, hasMore: startIndex + limit < allEntries.length, total });
   } catch (error) {
