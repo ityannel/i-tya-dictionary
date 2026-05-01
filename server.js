@@ -883,16 +883,27 @@ app.post('/api/reverse-translate', async (req, res) => {
 
   try {
     await ensureCache();
-    const wordList = memCache.words.map(w =>
-      `${w.word_noun || ''}/${w.word_verb || ''}/${w.word_extender || ''} = ${w.concept_ja || w.meaning_noun || w.meaning || ''}`
-    ).join('\n');
+    // 辞書を「i-tya語 → 日本語」の対応表として整形
+    const wordList = memCache.words
+      .filter(w => w.word_noun || w.word_verb || w.word_extender)
+      .map(w => {
+        const forms = [
+          w.word_noun ? `${w.word_noun}（名詞）` : '',
+          w.word_verb ? `${w.word_verb}（動詞）` : '',
+          w.word_extender ? `${w.word_extender}（拡張詞）` : ''
+        ].filter(Boolean).join(' / ');
+        return `${forms} → ${w.concept_ja || w.meaning_noun || w.meaning || ''}`;
+      }).join('\n');
 
-    const prompt = `以下はi-tya辞書の単語リストだ。これを参考にして、i-tya文章を日本語に翻訳せよ。
+    const prompt = `以下はi-tya辞書だ。各行は「i-tya語（品詞） → 日本語の意味」の対応を示す。
 
-【辞書】
+【i-tya辞書】
 ${wordList}
 
-【翻訳対象】
+上記の辞書を参照し、以下のi-tya文章を自然な日本語に翻訳せよ。
+出力は必ずJSONのみ。翻訳文は "translation" フィールドに、語ごとの内訳は "breakdown" 配列に入れよ。
+
+【翻訳するi-tya文章】
 ${sentence}`;
 
     const parsed = await callAIWithRetry(reverseTranslateModel, prompt);
