@@ -931,6 +931,7 @@ export default function App() {
               isAdmin={isAdmin}
               deleteMode={deleteMode}
               selectedIds={selectedIds}
+              onSelectToggle={toggleSelectId}
             />
           </div>
         )}
