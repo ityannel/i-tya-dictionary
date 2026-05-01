@@ -763,6 +763,89 @@ app.post('/api/translate', async (req, res) => {
   }
 });
 
+// 逆引き（i-tya語 → 日本語）
+app.post('/api/reverse', async (req, res) => {
+  const { word } = req.body;
+  if (!word) return res.status(400).json({ error: 'Word is empty.' });
+
+  try {
+    await ensureCache();
+
+    const w = word.trim().toLowerCase();
+    // 語末の母音で品詞判定
+    const lastChar = w.slice(-1);
+    const posMap = { 'a': 'noun', 'i': 'verb', 'u': 'extender' };
+    const pos = posMap[lastChar] || null;
+
+    // 完全一致検索（word_noun / word_verb / word_extender）
+    let found = memCache.words.find(entry =>
+      (entry.word_noun || '').toLowerCase() === w ||
+      (entry.word_verb || '').toLowerCase() === w ||
+      (entry.word_extender || '').toLowerCase() === w
+    );
+
+    // 複合語検索
+    if (!found) {
+      const complexFound = memCache.complex.find(c =>
+        (c.combination || '').toLowerCase().split(/\s+/).includes(w)
+      );
+      if (complexFound) {
+        return res.json({
+          found: true,
+          word: w,
+          meaning: complexFound.concept_ja || complexFound.meaning || '(意味未登録)',
+          pos: null,
+          forms: null,
+          reason: complexFound.reason || null,
+          isComplex: true
+        });
+      }
+    }
+
+    if (found) {
+      return res.json({
+        found: true,
+        word: w,
+        meaning: found.concept_ja || found.meaning_noun || found.meaning || '(意味未登録)',
+        pos,
+        forms: {
+          noun: found.word_noun || '-',
+          verb: found.word_verb || '-',
+          extender: found.word_extender || '-'
+        },
+        reason: (pos === 'noun' ? found.reason_noun : pos === 'verb' ? found.reason_verb : found.reason_extender) || found.reason || null
+      });
+    }
+
+    // 語幹で部分一致（例: "was" → "wasa", "wasi", "wasu" を持つ語）
+    const root = /[aiu]$/.test(w) ? w.slice(0, -1) : w;
+    const rootFound = memCache.words.find(entry => {
+      const base = entry.word_noun || entry.word_verb || entry.word_extender || '';
+      return base.length > 1 && base.slice(0, -1).toLowerCase() === root;
+    });
+    if (rootFound) {
+      return res.json({
+        found: true,
+        word: w,
+        meaning: rootFound.concept_ja || rootFound.meaning_noun || '(意味未登録)',
+        pos,
+        forms: {
+          noun: rootFound.word_noun || '-',
+          verb: rootFound.word_verb || '-',
+          extender: rootFound.word_extender || '-'
+        },
+        reason: rootFound.reason || null,
+        note: '語幹一致'
+      });
+    }
+
+    return res.json({ found: false, word: w });
+  } catch (error) {
+    console.error('[/api/reverse] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 辞書一覧
 app.get('/api/dictionary', async (req, res) => {
   try {

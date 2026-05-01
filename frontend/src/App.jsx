@@ -126,6 +126,8 @@ export default function App() {
   const [displayIconType, setDisplayIconType] = useState('search');
   const [errorMessage, setErrorMessage] = useState('');
   const [anoClicked, setAnoClicked] = useState(false);
+  const [reverseResult, setReverseResult] = useState(null);
+  const [isReverseMode, setIsReverseMode] = useState(false);
 
   const handleAnoClick = () => {
     if (anoClicked) return;
@@ -141,7 +143,7 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [wordMap, setWordMap] = useState({});
 
-  const isExpanded = isSearching || result || translationResult || error;
+  const isExpanded = isSearching || result || translationResult || reverseResult || error;
 
   const handleTouchStart = () => {
     isLongPress.current = false;
@@ -171,6 +173,7 @@ export default function App() {
     let targetIcon = 'search';
     if (isExpanded) targetIcon = 'x';
     else if (mode === 'translate') targetIcon = 'translate';
+    else if (mode === 'reverse') targetIcon = 'reverse';
 
     if (displayIconType !== targetIcon) {
       setIconScale(0);
@@ -216,7 +219,9 @@ export default function App() {
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  const loadingMessages = isTranslateMode
+  const loadingMessages = isReverseMode
+    ? ["をi-tya辞書で逆引き中...", "の音節構造を解析中...", "の日本語訳を検索中..."]
+    : isTranslateMode
     ? ["をi-tyaに翻訳中...", "の文法構造を解析中...", "の単語を照合中..."]
     : ["をデータベースから検索中...", "の統語構造を分析中...", "の説明を生成中..."];
 
@@ -229,7 +234,7 @@ export default function App() {
       }, 1500);
     }
     return () => clearInterval(interval);
-  }, [isSearching, isTranslateMode]);
+  }, [isSearching, isTranslateMode, isReverseMode]);
 
   const handleTitleClick = () => {
     clickCountRef.current += 1;
@@ -325,9 +330,18 @@ export default function App() {
     setDictRefreshKey(k => k + 1);
   };
 
+  // i-tya語かどうかを正規表現で判定（ラテン文字のみ＋i-tya音韻文字）
+  const isItyaWord = (text) => {
+    const t = text.trim().toLowerCase();
+    if (!t) return false;
+    // i-tya語：a,i,u,h,k,l,m,n,p,s,t,w,y のみで構成（大文字固有名詞も許容）
+    return /^[a-zA-Z\s,.'!?]+$/.test(t) && /^(?:[A-Z]?[hklmnpstwya-z]+[\s,.'!?]*)+$/.test(t);
+  };
+
   const isTranslateSentence = (text) => {
     const t = text.trim();
     if (!t) return false;
+    if (isItyaWord(t)) return false; // i-tya語は翻訳判定しない
     if (/[。、！？\s]/.test(t)) return true;
     if (/(?:する|した|して|している|しない|できる|できた|なった|ある|ない|いる|です|ます|ました|ません|だった|だろう|でしょう|ください|なさい|たい|させる|られる)$/.test(t)) return true;
     if (/[をにがへでと][ぁ-ん一-龥a-zA-Z]+[うくぐすつぬぶむるただ]$/.test(t)) return true;
@@ -337,7 +351,7 @@ export default function App() {
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
     const doReset = () => {
-      setResult(null); setTranslationResult(null); setIsTranslateMode(false);
+      setResult(null); setTranslationResult(null); setReverseResult(null); setIsTranslateMode(false); setIsReverseMode(false);
       setIsSearching(false); setQuery(''); setError(null); setErrorMessage(''); setMode('auto');
     };
     if (!document.startViewTransition) {
@@ -457,14 +471,45 @@ export default function App() {
     }
   };
 
+  const executeReverse = async (word) => {
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseResult(null); });
+    try {
+      const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
+      const trData = await trRes.json();
+      if (Array.isArray(trData) && trData.length > 0)
+        setTrivia(trData[Math.floor(Math.random() * trData.length)]);
+    } catch {}
+    try {
+      const res = await fetch('https://i-tya-dictionary.onrender.com/api/reverse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word }),
+      });
+      if (res.status === 503) {
+        const errData = await res.json().catch(() => ({}));
+        setError('overload'); setErrorMessage(errData.error || ''); setIsSearching(false); return;
+      }
+      if (!res.ok) { setError('connection'); setIsSearching(false); return; }
+      const data = await res.json();
+      if (data.error) { setError('invalid'); setIsSearching(false); return; }
+      safeTransition(() => { setReverseResult(data); setIsSearching(false); });
+    } catch (err) {
+      console.error("逆引き通信エラー:", err);
+      setError('connection'); setIsSearching(false);
+    }
+  };
+
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     if (!query.trim() || isSearching) return;
     clickedWordIdRef.current = null;
-    if (mode === 'translate' || isTranslateSentence(query)) {
-      setIsTranslateMode(true); setTranslationResult(null); executeTranslation(query);
+    if (isItyaWord(query)) {
+      setIsReverseMode(true); setIsTranslateMode(false); setTranslationResult(null); setReverseResult(null);
+      executeReverse(query);
+    } else if (mode === 'translate' || isTranslateSentence(query)) {
+      setIsTranslateMode(true); setIsReverseMode(false); setTranslationResult(null); executeTranslation(query);
     } else {
-      setIsTranslateMode(false); setTranslationResult(null);
+      setIsTranslateMode(false); setIsReverseMode(false); setTranslationResult(null);
       safeTransition(() => { executeSearch(query); });
     }
   };
@@ -564,10 +609,11 @@ export default function App() {
           <button
             className={`ano-btn ${anoClicked ? 'ano-btn--flying' : ''}`}
             onClick={handleAnoClick}
-            aria-label="ano world へ"
-            title="ano world へ飛ぶ！"
+            aria-label="SwaSwa worldへ"
+            title="SwaSwa world へ飛ぶ！"
+            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
           >
-            <img src={anoSvg} alt="ano" className="ano-img" />
+            <img src={anoSvg} alt="ano" className="ano-img" style={{ height: '1em', width: 'auto' }} />
           </button>
         </div>
 
@@ -576,12 +622,15 @@ export default function App() {
             <input
               type="text"
               className={`morph-input ${isExpanded ? 'hidden' : ''}`}
-              placeholder={mode === 'translate' ? "i-tyaに翻訳..." : "日本語で検索..."}
+              placeholder={mode === 'translate' ? "i-tyaに翻訳..." : mode === 'reverse' ? "i-tya語を逆引き..." : "日本語で検索..."}
               value={query}
               onChange={(e) => {
                 const newText = e.target.value;
                 setQuery(newText);
-                if (newText.trim() !== '') setMode(isTranslateSentence(newText) ? 'translate' : 'word');
+                if (newText.trim() !== '') {
+                  if (isItyaWord(newText)) setMode('reverse');
+                  else setMode(isTranslateSentence(newText) ? 'translate' : 'word');
+                }
               }}
               disabled={isExpanded}
             />
@@ -760,6 +809,55 @@ export default function App() {
             {error && !isSearching && (
               <ErrorDisplay error={error} errorMessage={errorMessage} />
             )}
+
+            {reverseResult && !isSearching && !error && (
+              <div className="inner-result fade-in-up">
+                <div className="concept-text">
+                  {query}
+                  <span className="badge-compound">逆引き</span>
+                </div>
+                {reverseResult.found ? (
+                  <>
+                    <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
+                      {reverseResult.meaning}
+                    </h2>
+                    <div className="reason-text">
+                      {reverseResult.pos && (
+                        <div style={{ marginBottom: '8px', opacity: 0.7 }}>
+                          品詞: {reverseResult.pos === 'noun' ? '名詞 (-a)' : reverseResult.pos === 'verb' ? '動詞 (-i)' : '拡張詞 (-u)'}
+                        </div>
+                      )}
+                      {reverseResult.forms && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <span style={{ opacity: 0.6 }}>名詞: </span><strong>{reverseResult.forms.noun}</strong>
+                          {'　'}<span style={{ opacity: 0.6 }}>動詞: </span><strong>{reverseResult.forms.verb}</strong>
+                          {'　'}<span style={{ opacity: 0.6 }}>拡張詞: </span><strong>{reverseResult.forms.extender}</strong>
+                        </div>
+                      )}
+                      {reverseResult.reason && <div>{reverseResult.reason}</div>}
+                    </div>
+                  </>
+                ) : (
+                  <div className="reason-text" style={{ opacity: 0.7 }}>
+                    「{query}」はi-tya辞書に登録されていません。
+                  </div>
+                )}
+                <div className="share-buttons">
+                  <button className="index-btn" onClick={() => {
+                    navigator.clipboard.writeText(`${query} → ${reverseResult.meaning || '未登録'}`);
+                    setCopied(true); setTimeout(() => setCopied(false), 2000);
+                  }}>
+                    {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
+                  </button>
+                  <button className="index-btn" onClick={() => {
+                    const text = `i-tya語「${query}」の意味は「${reverseResult.meaning}」です！\n\n#i_tya #NT函館`;
+                    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+                  }}>
+                    <FontAwesomeIcon icon={faXTwitter} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <button
@@ -785,6 +883,7 @@ export default function App() {
             }}>
               {displayIconType === 'x' && <X size={28} strokeWidth={3.5} />}
               {displayIconType === 'translate' && <Languages size={28} strokeWidth={2} />}
+              {displayIconType === 'reverse' && <Search size={28} strokeWidth={2} style={{ transform: 'scaleX(-1)' }} />}
               {displayIconType === 'search' && <Search size={28} strokeWidth={3.5} />}
             </span>
           </button>

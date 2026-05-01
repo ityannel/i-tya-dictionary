@@ -1166,14 +1166,17 @@ body {
 }
 
 .ano-btn {
+  /* width/height を main-title の font-size と同じ値に揃える */
+  width: clamp(60px, 15vw, 160px);   /* 変更: 70px→60px, 16vw→15vw, 180px→160px */
+  height: clamp(60px, 15vw, 160px);  /* 変更: 同上 */
+
+  /* 以下は変更なし */
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
-  width: clamp(70px, 16vw, 180px);
-  height: clamp(70px, 16vw, 180px);
   position: absolute;
   top: 50%;
   left: 100%;
@@ -1219,52 +1222,39 @@ body {
 
 @media (max-width: 768px) {
   .ano-btn {
-    width: clamp(55px, 13vw, 100px);
-    height: clamp(55px, 13vw, 100px);
+    width: clamp(60px, 15vw, 160px);
+    height: clamp(60px, 15vw, 160px);
   }
 }
-
-/* ─── 辞書バッジ ─── */
-/* word-card に flex と align-items を追加済みの前提 */
-
-.dict-badge {
-  display: inline-flex;
-  align-items: center;
+/* ===== 翻訳方向トグル ===== */
+.translate-direction-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px 4px;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #fff;
-  flex-shrink: 0;
-  margin-right: 0.5rem;
-  letter-spacing: 0;
 }
 
-/* ─── 凡例 ─── */
-.dict-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  padding: 0.5rem 0.25rem 0.75rem;
-  opacity: 0.75;
+.translate-dir-btn {
+  background: none;
+  border: 1.5px solid rgba(112, 255, 112, 0.3);
+  color: rgba(112, 255, 112, 0.55);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-family: 'Fredoka', 'LINE Seed JP', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.dict-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
+.translate-dir-btn:hover {
+  border-color: rgba(112, 255, 112, 0.6);
+  color: rgba(112, 255, 112, 0.8);
 }
 
-.dict-legend-label {
-  font-size: 0.72rem;
-  color: var(--color-text, #ccc);
-}
-
-/* word-card に左余白を確保（バッジ分） */
-.word-card {
-  display: flex;
-  align-items: center;
-  gap: 0;
+.translate-dir-btn.active {
+  background: rgba(112, 255, 112, 0.15);
+  border-color: rgba(112, 255, 112, 0.8);
+  color: rgba(112, 255, 112, 1);
+  font-weight: 600;
 }
