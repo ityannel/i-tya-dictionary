@@ -128,6 +128,8 @@ export default function App() {
   const [anoClicked, setAnoClicked] = useState(false);
   const [reverseResult, setReverseResult] = useState(null);
   const [isReverseMode, setIsReverseMode] = useState(false);
+  const [reverseTranslationResult, setReverseTranslationResult] = useState(null);
+  const [isReverseTranslateMode, setIsReverseTranslateMode] = useState(false);
 
   const handleAnoClick = () => {
     if (anoClicked) return;
@@ -143,7 +145,7 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [wordMap, setWordMap] = useState({});
 
-  const isExpanded = isSearching || result || translationResult || reverseResult || error;
+  const isExpanded = isSearching || result || translationResult || reverseResult || reverseTranslationResult || error;
 
   const handleTouchStart = () => {
     isLongPress.current = false;
@@ -174,6 +176,7 @@ export default function App() {
     if (isExpanded) targetIcon = 'x';
     else if (mode === 'translate') targetIcon = 'translate';
     else if (mode === 'reverse') targetIcon = 'reverse';
+    else if (mode === 'reverse-translate') targetIcon = 'reverse-translate';
 
     if (displayIconType !== targetIcon) {
       setIconScale(0);
@@ -221,8 +224,10 @@ export default function App() {
 
   const loadingMessages = isReverseMode
     ? ["をi-tya辞書で逆引き中...", "の音節構造を解析中...", "の日本語訳を検索中..."]
+    : isReverseTranslateMode
+    ? ["をi-tyaから日本語に翻訳中...", "の文法構造を解析中...", "の各単語を照合中..."]
     : isTranslateMode
-    ? ["をi-tyaに翻訳中...", "の文法構造を解析中...", "の単語を照合中..."]
+    ? ["を日本語からi-tyaに翻訳中...", "の文法構造を解析中...", "の単語を照合中..."]
     : ["をデータベースから検索中...", "の統語構造を分析中...", "の説明を生成中..."];
 
   useEffect(() => {
@@ -234,7 +239,7 @@ export default function App() {
       }, 1500);
     }
     return () => clearInterval(interval);
-  }, [isSearching, isTranslateMode, isReverseMode]);
+  }, [isSearching, isTranslateMode, isReverseMode, isReverseTranslateMode]);
 
   const handleTitleClick = () => {
     clickCountRef.current += 1;
@@ -338,6 +343,18 @@ export default function App() {
     return /^[a-zA-Z\s,.'!?]+$/.test(t) && /^(?:[A-Z]?[hklmnpstwya-z]+[\s,.'!?]*)+$/.test(t);
   };
 
+  // i-tya文章かどうか判定（複数単語 or 句読点あり）
+  const isItyaSentence = (text) => {
+    const t = text.trim();
+    if (!t) return false;
+    if (!isItyaWord(t)) return false; // i-tya語でなければfalse
+    // 複数単語（スペース区切り）か句読点を含む場合は文章とみなす
+    const words = t.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) return true;
+    if (/[,.'!?]/.test(t)) return true;
+    return false;
+  };
+
   const isTranslateSentence = (text) => {
     const t = text.trim();
     if (!t) return false;
@@ -351,7 +368,8 @@ export default function App() {
   const resetSearch = () => {
     const targetId = clickedWordIdRef.current;
     const doReset = () => {
-      setResult(null); setTranslationResult(null); setReverseResult(null); setIsTranslateMode(false); setIsReverseMode(false);
+      setResult(null); setTranslationResult(null); setReverseResult(null); setReverseTranslationResult(null);
+      setIsTranslateMode(false); setIsReverseMode(false); setIsReverseTranslateMode(false);
       setIsSearching(false); setQuery(''); setError(null); setErrorMessage(''); setMode('auto');
     };
     if (!document.startViewTransition) {
@@ -499,17 +517,56 @@ export default function App() {
     }
   };
 
+  const executeReverseTranslation = async (sentence) => {
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseTranslationResult(null); });
+    try {
+      const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
+      const trData = await trRes.json();
+      if (Array.isArray(trData) && trData.length > 0)
+        setTrivia(trData[Math.floor(Math.random() * trData.length)]);
+    } catch {}
+    try {
+      const res = await fetch('https://i-tya-dictionary.onrender.com/api/reverse-translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentence }),
+      });
+      if (res.status === 503) {
+        const errData = await res.json().catch(() => ({}));
+        setError('overload'); setErrorMessage(errData.error || ''); setIsSearching(false); return;
+      }
+      if (!res.ok) { setError('connection'); setIsSearching(false); return; }
+      const data = await res.json();
+      if (!data.translation) { setError('connection'); setIsSearching(false); return; }
+      safeTransition(() => { setReverseTranslationResult(data); setIsSearching(false); });
+    } catch (err) {
+      console.error("逆翻訳通信エラー:", err);
+      setError('connection'); setIsSearching(false);
+    }
+  };
+
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     if (!query.trim() || isSearching) return;
     clickedWordIdRef.current = null;
-    if (isItyaWord(query)) {
-      setIsReverseMode(true); setIsTranslateMode(false); setTranslationResult(null); setReverseResult(null);
+    if (isItyaSentence(query)) {
+      // i-tya文章 → 日本語へ逆翻訳
+      setIsReverseTranslateMode(true); setIsReverseMode(false); setIsTranslateMode(false);
+      setTranslationResult(null); setReverseResult(null);
+      executeReverseTranslation(query);
+    } else if (isItyaWord(query)) {
+      // i-tya単語 → 逆引き
+      setIsReverseMode(true); setIsReverseTranslateMode(false); setIsTranslateMode(false);
+      setTranslationResult(null); setReverseResult(null);
       executeReverse(query);
     } else if (mode === 'translate' || isTranslateSentence(query)) {
-      setIsTranslateMode(true); setIsReverseMode(false); setTranslationResult(null); executeTranslation(query);
+      // 日本語文章 → i-tya翻訳
+      setIsTranslateMode(true); setIsReverseMode(false); setIsReverseTranslateMode(false);
+      setTranslationResult(null); executeTranslation(query);
     } else {
-      setIsTranslateMode(false); setIsReverseMode(false); setTranslationResult(null);
+      // 日本語単語 → 検索
+      setIsTranslateMode(false); setIsReverseMode(false); setIsReverseTranslateMode(false);
+      setTranslationResult(null);
       safeTransition(() => { executeSearch(query); });
     }
   };
@@ -622,13 +679,14 @@ export default function App() {
             <input
               type="text"
               className={`morph-input ${isExpanded ? 'hidden' : ''}`}
-              placeholder={mode === 'translate' ? "i-tyaに翻訳..." : mode === 'reverse' ? "i-tya語を逆引き..." : "日本語で検索..."}
+              placeholder={mode === 'translate' ? "i-tyaに翻訳..." : mode === 'reverse' ? "i-tya語を逆引き..." : mode === 'reverse-translate' ? "i-tya文章を日本語に翻訳..." : "日本語で検索..."}
               value={query}
               onChange={(e) => {
                 const newText = e.target.value;
                 setQuery(newText);
                 if (newText.trim() !== '') {
-                  if (isItyaWord(newText)) setMode('reverse');
+                  if (isItyaSentence(newText)) setMode('reverse-translate');
+                  else if (isItyaWord(newText)) setMode('reverse');
                   else setMode(isTranslateSentence(newText) ? 'translate' : 'word');
                 }
               }}
@@ -858,6 +916,41 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {reverseTranslationResult && !isSearching && !error && (
+              <div className="inner-result fade-in-up">
+                <div className="concept-text">
+                  {query}
+                  <span className="badge-compound">i-tya→日本語</span>
+                </div>
+                <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
+                  {reverseTranslationResult.translation}
+                </h2>
+                <div className="reason-text">
+                  {reverseTranslationResult.breakdown?.map((item, i) => (
+                    <div key={i} style={{ marginBottom: '8px' }}>
+                      <strong>{item.itya}</strong>
+                      {' → '}<span style={{ opacity: 0.6 }}>{item.japanese}</span>
+                      {item.role && <span style={{ opacity: 0.45, fontSize: '0.85em', marginLeft: '6px' }}>（{item.role}）</span>}
+                    </div>
+                  ))}
+                </div>
+                <div className="share-buttons">
+                  <button className="index-btn" onClick={() => {
+                    navigator.clipboard.writeText(reverseTranslationResult.translation);
+                    setCopied(true); setTimeout(() => setCopied(false), 2000);
+                  }}>
+                    {copied ? <Check size={20} strokeWidth={3} /> : <Link size={20} strokeWidth={2.5} />}
+                  </button>
+                  <button className="index-btn" onClick={() => {
+                    const text = `i-tya文「${query}」の日本語訳は「${reverseTranslationResult.translation}」です！\n\n#i_tya #NT函館`;
+                    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+                  }}>
+                    <FontAwesomeIcon icon={faXTwitter} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <button
@@ -884,6 +977,7 @@ export default function App() {
               {displayIconType === 'x' && <X size={28} strokeWidth={3.5} />}
               {displayIconType === 'translate' && <Languages size={28} strokeWidth={2} />}
               {displayIconType === 'reverse' && <Search size={28} strokeWidth={2} style={{ transform: 'scaleX(-1)' }} />}
+              {displayIconType === 'reverse-translate' && <Languages size={28} strokeWidth={2} style={{ transform: 'scaleX(-1)' }} />}
               {displayIconType === 'search' && <Search size={28} strokeWidth={3.5} />}
             </span>
           </button>

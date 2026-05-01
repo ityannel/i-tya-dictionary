@@ -432,8 +432,38 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 }
 `;
 
+const reverseTranslateRules = `
+あなたはi-tya言語の逆翻訳コンパイラだ。i-tya語の文章を日本語に翻訳し、JSONのみ出力せよ。
+
+【i-tya基本ルール（解読用）】
+音韻: 母音(a,i,u)、子音(h,k,l,m,n,p,s,t)、半母音(w,y)。
+品詞: -a=名詞、-i=動詞、-u=拡張詞。
+時制・助詞: nu=完了/過去、hu=否定、nyu=疑問、ku=～へ、mu=～から/の、su=～で/に、tu=手段
+接続: pu=そして、pyu=または、syu=だから、yu=もし
+人称: ma=私、pa=あなた、na=彼/彼女/それ
+指示: sa=これ、la=あれ
+場所: wa=空間/場所、ya=事実、swa=言葉/記号
+時間: pwa=前/過去、mwa=後/未来
+その他: myu=進行中、kyu=複数、lu=数字prefix
+
+【語順】SV型。後置修飾。
+
+【出力フォーマット】
+{
+  "translation": "日本語訳",
+  "breakdown": [
+    {
+      "itya": "i-tya語の要素",
+      "japanese": "対応する日本語",
+      "role": "品詞・機能の説明"
+    }
+  ]
+}
+`;
+
 const generateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: ityaRules });
 const translateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: translateRules });
+const reverseTranslateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: reverseTranslateRules });
 
 // ─────────────────────────────────────────────
 //  AI呼び出しユーティリティ
@@ -842,6 +872,33 @@ app.post('/api/reverse', async (req, res) => {
     return res.json({ found: false, word: w });
   } catch (error) {
     console.error('[/api/reverse] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// i-tya文章 → 日本語逆翻訳
+app.post('/api/reverse-translate', async (req, res) => {
+  const { sentence } = req.body;
+  if (!sentence) return res.status(400).json({ error: 'Sentence is empty.' });
+
+  try {
+    await ensureCache();
+    const wordList = memCache.words.map(w =>
+      `${w.word_noun || ''}/${w.word_verb || ''}/${w.word_extender || ''} = ${w.concept_ja || w.meaning_noun || w.meaning || ''}`
+    ).join('\n');
+
+    const prompt = `以下はi-tya辞書の単語リストだ。これを参考にして、i-tya文章を日本語に翻訳せよ。
+
+【辞書】
+${wordList}
+
+【翻訳対象】
+${sentence}`;
+
+    const parsed = await callAIWithRetry(reverseTranslateModel, prompt);
+    return res.json(parsed);
+  } catch (error) {
+    console.error('[/api/reverse-translate] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
