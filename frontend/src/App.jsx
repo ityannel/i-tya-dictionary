@@ -666,8 +666,7 @@ export default function App() {
           <button
             className={`ano-btn ${anoClicked ? 'ano-btn--flying' : ''}`}
             onClick={handleAnoClick}
-            aria-label="SwaSwa worldへ"
-            title="SwaSwa world へ飛ぶ！"
+            aria-label="SwaSwa!"
             style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
           >
             <img src={anoSvg} alt="ano" className="ano-img" style={{ height: '1em', width: 'auto' }} />
@@ -679,7 +678,7 @@ export default function App() {
             <input
               type="text"
               className={`morph-input ${isExpanded ? 'hidden' : ''}`}
-              placeholder={mode === 'translate' ? "i-tyaに翻訳..." : mode === 'reverse' ? "i-tya語を逆引き..." : mode === 'reverse-translate' ? "i-tya文章を日本語に翻訳..." : "日本語で検索..."}
+              placeholder={mode === 'translate' ? "文章を翻訳..." : mode === 'reverse' ? "i-tyaで検索..." : mode === 'reverse-translate' ? "文章を翻訳..." : "日本語で検索..."}
               value={query}
               onChange={(e) => {
                 const newText = e.target.value;
@@ -921,9 +920,9 @@ export default function App() {
               <div className="inner-result fade-in-up">
                 <div className="concept-text">
                   {query}
-                  <span className="badge-compound">i-tya→日本語</span>
+                  <span className="badge-compound">翻訳</span>
                 </div>
-                <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
+                <h2 className="word-display word-display-but-japanese" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                   {reverseTranslationResult.translation}
                 </h2>
                 <div className="reason-text">
