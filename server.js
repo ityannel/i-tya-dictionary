@@ -641,7 +641,7 @@ app.post('/api/generate', async (req, res) => {
       const aiRes = await callAIWithRetry(generateModel, prompt);
 
       // AIが既存と判断した場合
-      if (aiRes.status === 'existing' && aiRes['root_word.2']) {
+      if ((aiRes.status === 'existing' || !aiRes.status) && aiRes['root_word.2']) {
         const found = findInCacheByRoot(aiRes['root_word.2']);
         if (found) {
           return {
