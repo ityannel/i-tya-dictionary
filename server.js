@@ -628,16 +628,33 @@ app.post('/api/generate', async (req, res) => {
       const aiRes = await callAIWithRetry(generateModel, prompt);
 
       // AIが既存と判断した場合
-      if (aiRes.status === 'existing' && aiRes['root_word.2']) {
-        const found = findInCacheByRoot(aiRes['root_word.2']);
+      if (aiRes['root_word.2'] || aiRes.status === 'existing') {
+        const rootKey = aiRes['root_word.2'];
+        const posKey = aiRes['part_of_speech_word.2'] || 'noun';
+        const found = rootKey ? findInCacheByRoot(rootKey) : null;
         if (found) {
           return {
             status: 'existing', id: found.id, meaning: found.concept_ja,
+            part_of_speech: posKey,
             data: { noun: found.word_noun, verb: found.word_verb, extender: found.word_extender },
             meaning_noun: found.meaning_noun || '', meaning_verb: found.meaning_verb || '', meaning_extender: found.meaning_extender || '',
             reason_noun: found.reason_noun || found.reason || 'No description available.',
             reason_verb: found.reason_verb || found.reason || 'No description available.',
             reason_extender: found.reason_extender || found.reason || 'No description available.'
+          };
+        }
+        // キャッシュミス時：語幹から単語を組み立てて返す
+        if (rootKey) {
+          const suffix = posKey === 'verb' ? 'i' : posKey === 'extender' ? 'u' : 'a';
+          return {
+            status: 'existing',
+            part_of_speech: posKey,
+            root: rootKey,
+            data: { noun: rootKey + 'a', verb: rootKey + 'i', extender: rootKey + 'u' },
+            meaning_noun: '', meaning_verb: '', meaning_extender: '',
+            reason_noun: 'No description available.',
+            reason_verb: 'No description available.',
+            reason_extender: 'No description available.'
           };
         }
       }

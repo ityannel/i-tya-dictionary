@@ -445,6 +445,15 @@ const safeTransition = (callback) => {
       } else if (data.status === 'new' || data.status === 'existing') {
         if (data.root) { parsedRoot = data.root; displayWord = data.root + suffix; }
       }
+      // AIが既存判定でdataもrootもない場合（root_word.2 直接返し）
+      if (displayWord === "???" && data['root_word.2']) {
+        const r = data['root_word.2'];
+        const pos = data['part_of_speech_word.2'] || 'noun';
+        const s = pos === 'verb' ? 'i' : pos === 'extender' ? 'u' : 'a';
+        parsedRoot = r; displayWord = r + s; posKey = pos;
+        if (pos === 'verb') suffix = 'i';
+        else if (pos === 'extender') suffix = 'u';
+      }
 
       const finishSearching = () => {
         const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
