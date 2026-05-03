@@ -39,22 +39,22 @@ const ROMA_TO_KANA = {
   'ta':'タ','ti':'ティ','tu':'トゥ',
   'wa':'ワ','wi':'ウィ','wu':'ウ',
   'ya':'ヤ','yi':'イ','yu':'ユ',
-  'hwa':'ファ','hwi':'フィ','hwu':'フ',
-  'kwa':'クァ','kwi':'クィ','kwu':'ク',
-  'lwa':'ルァ','lwi':'ルィ','lwu':'ル',
-  'mwa':'ムァ','mwi':'ムィ','mwu':'ム',
-  'nwa':'ヌァ','nwi':'ヌィ','nwu':'ヌ',
-  'pwa':'プァ','pwi':'プィ','pwu':'プ',
-  'swa':'スァ','swi':'スィ','swu':'ス',
-  'twa':'トァ','twi':'トィ','twu':'ト',
-  'hya':'ヒャ','hyi':'ヒ','hyu':'ヒュ',
-  'kya':'キャ','kyi':'キ','kyu':'キュ',
-  'lya':'リャ','lyi':'リ','lyu':'リュ',
-  'mya':'ミャ','myi':'ミ','myu':'ミュ',
-  'nya':'ニャ','nyi':'ニ','nyu':'ニュ',
-  'pya':'ピャ','pyi':'ピ','pyu':'ピュ',
-  'sya':'シャ','syi':'シ','syu':'シュ',
-  'tya':'チャ','tyi':'チ','tyu':'チュ',
+  'hwa':'フゥァ','hwi':'フゥィ','hwu':'フゥ',
+  'kwa':'クゥァ','kwi':'クゥィ','kwu':'クゥ',
+  'lwa':'ルゥァ','lwi':'ルゥィ','lwu':'ルゥ',
+  'mwa':'ムゥァ','mwi':'ムゥィ','mwu':'ムゥ',
+  'nwa':'ヌゥァ','nwi':'ヌゥィ','nwu':'ヌゥ',
+  'pwa':'プゥァ','pwi':'プゥィ','pwu':'プゥ',
+  'swa':'スゥァ','swi':'スゥィ','swu':'スゥ',
+  'twa':'トゥァ','twi':'トゥィ','twu':'トゥ',
+  'hya':'ヒャ','hyi':'ヒュィ','hyu':'ヒュ',
+  'kya':'キャ','kyi':'キュィ','kyu':'キュ',
+  'lya':'リャ','lyi':'リュィ','lyu':'リュ',
+  'mya':'ミャ','myi':'ミュィ','myu':'ミュ',
+  'nya':'ニャ','nyi':'ニュィ','nyu':'ニュ',
+  'pya':'ピャ','pyi':'ピュィ','pyu':'ピュ',
+  'sya':'シャ','syi':'シュィ','syu':'シュ',
+  'tya':'チャ','tyi':'チュィ','tyu':'チュ',
 };
 
 function ityaToKana(word) {
@@ -573,9 +573,7 @@ const safeTransition = (callback) => {
     };
     if (!document.startViewTransition) { doReset(); scrollToWord(); return; }
     const t = document.startViewTransition(() => { doReset(); });
-    // finished後ではなくready後（スナップショット取得後・アニメーション開始前）に
-    // スクロールすることでブラウザの巻き戻しを回避
-    t.ready.then(() => { scrollToWord(); }).catch(() => { scrollToWord(); });
+    t.finished.finally(() => { scrollToWord(); });
   };
 
   const executeSearch = async (searchQuery) => {
