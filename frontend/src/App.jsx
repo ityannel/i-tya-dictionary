@@ -76,7 +76,6 @@ function buildSyllableMap(text) {
   return syllables;
 }
 
-// ─── カラオケ表示コンポーネント ───
 function KaraokeDisplay({ text, activeSylIndex, syllables }) {
   if (!text || !syllables || syllables.length === 0) return <span>{text}</span>;
   const isSpeaking = activeSylIndex >= 0;
