@@ -6,6 +6,138 @@ import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
 import DictionaryList from './DictionaryList';
 import anoSvg from './ano.svg';
 
+// ─── SE（効果音）ユーティリティ ───
+const getAudioContext = (() => {
+  let ctx = null;
+  return () => {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  };
+})();
+
+function playTone({ frequency = 440, type = 'sine', duration = 0.12, volume = 0.3, attack = 0.01, decay = 0.05, frequencyEnd = null }) {
+  try {
+    const ctx = getAudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+    if (frequencyEnd) osc.frequency.exponentialRampToValueAtTime(frequencyEnd, ctx.currentTime + duration);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + attack);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration - decay);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch (e) { /* SE失敗は無視 */ }
+}
+
+// 検索ボタンを押したときのSE
+const SE_SEARCH = () => {
+  playTone({ frequency: 600, type: 'sine', duration: 0.1, volume: 0.25, frequencyEnd: 900 });
+};
+
+// 結果が表示されたとき（全ケース共通）のSE（ファンファーレ）
+const SE_RESULT = () => {
+  try {
+    const ctx = getAudioContext();
+    // メロディー: タタタ・ターン（付点リズム）
+    const melody = [
+      { freq: 523.3, t: 0,   dur: 0.1  },  // C5
+      { freq: 523.3, t: 110, dur: 0.1  },  // C5
+      { freq: 523.3, t: 220, dur: 0.1  },  // C5
+      { freq: 392.0, t: 330, dur: 0.18 },  // G4
+      { freq: 523.3, t: 510, dur: 0.5  },  // C5 ターン
+    ];
+    melody.forEach(({ freq, t, dur }) => {
+      setTimeout(() => {
+        playTone({ frequency: freq, type: 'triangle', duration: dur, volume: 0.28, attack: 0.01, decay: dur * 0.6 });
+      }, t);
+    });
+    // 和音で厚みを出す（ターンのとき）
+    setTimeout(() => {
+      playTone({ frequency: 329.6, type: 'triangle', duration: 0.5, volume: 0.15, attack: 0.01, decay: 0.4 }); // E4
+      playTone({ frequency: 392.0, type: 'triangle', duration: 0.5, volume: 0.15, attack: 0.01, decay: 0.4 }); // G4
+    }, 510);
+  } catch (e) { /* SE失敗は無視 */ }
+};
+
+// 新規単語が登録されたときのSE（ドラムロール→ジャーン）
+const SE_NEW_WORD = () => {
+  try {
+    const ctx = getAudioContext();
+
+    // ─── ドラムロール（スネア連打）───
+    const snareHits = 14;
+    for (let i = 0; i < snareHits; i++) {
+      // 加速しながら連打
+      const interval = 120 - i * 7;
+      const t = Array.from({ length: i }, (_, j) => 120 - j * 7).reduce((a, b) => a + b, 0);
+      setTimeout(() => {
+        // ノイズバッファでスネア音を生成
+        const bufSize = ctx.sampleRate * 0.08;
+        const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let k = 0; k < bufSize; k++) data[k] = (Math.random() * 2 - 1);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const g = ctx.createGain();
+        const vol = 0.08 + (i / snareHits) * 0.18;
+        g.gain.setValueAtTime(vol, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 2000 + i * 100;
+        src.connect(filter); filter.connect(g); g.connect(ctx.destination);
+        src.start(); src.stop(ctx.currentTime + 0.08);
+      }, t);
+    }
+
+    // ─── ロール終了時間を計算 ───
+    const rollDuration = Array.from({ length: snareHits }, (_, i) => 120 - i * 7).reduce((a, b) => a + b, 0);
+
+    // ─── ジャーン（和音） ───
+    const fanfareTime = rollDuration + 30;
+    const chordNotes = [261.6, 329.6, 392.0, 523.3]; // C4, E4, G4, C5
+    chordNotes.forEach((freq, i) => {
+      setTimeout(() => {
+        playTone({ frequency: freq, type: 'triangle', duration: 1.2, volume: 0.22, attack: 0.01, decay: 0.9 });
+      }, fanfareTime + i * 18);
+    });
+
+    // ─── シンバル（ジャーンに重ねる） ───
+    setTimeout(() => {
+      const bufSize = ctx.sampleRate * 0.6;
+      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let k = 0; k < bufSize; k++) data[k] = (Math.random() * 2 - 1);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.25, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      const hipass = ctx.createBiquadFilter();
+      hipass.type = 'highpass';
+      hipass.frequency.value = 8000;
+      src.connect(hipass); hipass.connect(g); g.connect(ctx.destination);
+      src.start(); src.stop(ctx.currentTime + 0.6);
+    }, fanfareTime);
+
+  } catch (e) { /* SE失敗は無視 */ }
+};
+
+// バツで戻るときのSE
+const SE_BACK = () => {
+  playTone({ frequency: 500, type: 'sine', duration: 0.12, volume: 0.2, frequencyEnd: 300 });
+};
+
+// 辞書の単語を押したときのSE
+const SE_WORD_CLICK = () => {
+  playTone({ frequency: 700, type: 'sine', duration: 0.08, volume: 0.2 });
+};
+
 // ─── i-tya語発音ユーティリティ ───
 // 音韻規則: (C)(G)V構造、子音h/k/l/m/n/p/s/t、半母音w/y、母音a/i/u
 // アクセント: 必ず第一音節に強勢（仕様書 2.2.3）
@@ -39,22 +171,22 @@ const ROMA_TO_KANA = {
   'ta':'タ','ti':'ティ','tu':'トゥ',
   'wa':'ワ','wi':'ウィ','wu':'ウ',
   'ya':'ヤ','yi':'イ','yu':'ユ',
-  'hwa':'フゥァ','hwi':'フゥィ','hwu':'フゥ',
-  'kwa':'クゥァ','kwi':'クゥィ','kwu':'クゥ',
-  'lwa':'ルゥァ','lwi':'ルゥィ','lwu':'ルゥ',
-  'mwa':'ムゥァ','mwi':'ムゥィ','mwu':'ムゥ',
-  'nwa':'ヌゥァ','nwi':'ヌゥィ','nwu':'ヌゥ',
-  'pwa':'プゥァ','pwi':'プゥィ','pwu':'プゥ',
-  'swa':'スゥァ','swi':'スゥィ','swu':'スゥ',
-  'twa':'トゥァ','twi':'トゥィ','twu':'トゥ',
-  'hya':'ヒャ','hyi':'ヒュィ','hyu':'ヒュ',
-  'kya':'キャ','kyi':'キュィ','kyu':'キュ',
-  'lya':'リャ','lyi':'リュィ','lyu':'リュ',
-  'mya':'ミャ','myi':'ミュィ','myu':'ミュ',
-  'nya':'ニャ','nyi':'ニュィ','nyu':'ニュ',
-  'pya':'ピャ','pyi':'ピュィ','pyu':'ピュ',
-  'sya':'シャ','syi':'シュィ','syu':'シュ',
-  'tya':'チャ','tyi':'チュィ','tyu':'チュ',
+  'hwa':'ファ','hwi':'フィ','hwu':'フ',
+  'kwa':'クァ','kwi':'クィ','kwu':'ク',
+  'lwa':'ルァ','lwi':'ルィ','lwu':'ル',
+  'mwa':'ムァ','mwi':'ムィ','mwu':'ム',
+  'nwa':'ヌァ','nwi':'ヌィ','nwu':'ヌ',
+  'pwa':'プァ','pwi':'プィ','pwu':'プ',
+  'swa':'スァ','swi':'スィ','swu':'ス',
+  'twa':'トァ','twi':'トィ','twu':'ト',
+  'hya':'ヒャ','hyi':'ヒ','hyu':'ヒュ',
+  'kya':'キャ','kyi':'キ','kyu':'キュ',
+  'lya':'リャ','lyi':'リ','lyu':'リュ',
+  'mya':'ミャ','myi':'ミ','myu':'ミュ',
+  'nya':'ニャ','nyi':'ニ','nyu':'ニュ',
+  'pya':'ピャ','pyi':'ピ','pyu':'ピュ',
+  'sya':'シャ','syi':'シ','syu':'シュ',
+  'tya':'チャ','tyi':'チ','tyu':'チュ',
 };
 
 function ityaToKana(word) {
@@ -76,6 +208,7 @@ function buildSyllableMap(text) {
   return syllables;
 }
 
+// ─── カラオケ表示コンポーネント ───
 function KaraokeDisplay({ text, activeSylIndex, syllables }) {
   if (!text || !syllables || syllables.length === 0) return <span>{text}</span>;
   const isSpeaking = activeSylIndex >= 0;
@@ -546,6 +679,7 @@ const safeTransition = (callback) => {
   };
 
   const resetSearch = () => {
+    SE_BACK();
     const targetId = clickedWordIdRef.current;
     const doReset = () => {
       setResult(null); setTranslationResult(null); setReverseResult(null); setReverseTranslationResult(null);
@@ -623,7 +757,9 @@ const safeTransition = (callback) => {
         if (finalStatus === "new") {
           const effects = ["confetti", "stars", "fireworks"];
           triggerCelebration(effects[Math.floor(Math.random() * effects.length)]);
+          SE_NEW_WORD();
         }
+        SE_RESULT();
         setResult({
           status: data.status || 'unknown',
           concept: data.meaning || data.meaning_noun || searchQuery,
@@ -665,7 +801,7 @@ const safeTransition = (callback) => {
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
       const data = await res.json();
       if (!data.translation) { setError('connection'); setIsSearching(false); return; }
-      safeTransition(() => { setTranslationResult(data); setIsSearching(false); });
+      safeTransition(() => { SE_RESULT(); setTranslationResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("翻訳通信エラー:", err);
       setError('connection'); setIsSearching(false);
@@ -693,7 +829,7 @@ const safeTransition = (callback) => {
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
       const data = await res.json();
       if (data.error) { setError('invalid'); setIsSearching(false); return; }
-      safeTransition(() => { setReverseResult(data); setIsSearching(false); });
+      safeTransition(() => { SE_RESULT(); setReverseResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("逆引き通信エラー:", err);
       setError('connection'); setIsSearching(false);
@@ -721,7 +857,7 @@ const safeTransition = (callback) => {
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
       const data = await res.json();
       if (!data.translation) { setError('connection'); setIsSearching(false); return; }
-      safeTransition(() => { setReverseTranslationResult(data); setIsSearching(false); });
+      safeTransition(() => { SE_RESULT(); setReverseTranslationResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("逆翻訳通信エラー:", err);
       setError('connection'); setIsSearching(false);
@@ -731,6 +867,7 @@ const safeTransition = (callback) => {
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     if (!query.trim() || isSearching) return;
+    SE_SEARCH();
     clickedWordIdRef.current = null;
     if (isItyaSentence(query)) {
       // i-tya文章 → 日本語へ逆翻訳
@@ -764,6 +901,7 @@ const safeTransition = (callback) => {
     clickedWordIdRef.current = wordData.id;
 
     const showDetail = () => {
+      SE_WORD_CLICK();
       window.scrollTo({ top: 0, behavior: 'instant' });
       setTrivia('');
       setActiveSyl(-1); setSylMap([]);

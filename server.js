@@ -435,6 +435,8 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 
 const reverseTranslateRules = `
 あなたはi-tya言語の逆翻訳コンパイラだ。i-tya語の文章を日本語に翻訳し、JSONのみ出力せよ。
+文章を出力する際、絶対に語幹のみを出力してはならず、それぞれの意味（品詞）に応じて適当に語尾を変化させること。
+いかなる単語も、子音で終わってはならず、かならずa, i, uのいずれかで終わらなければならない。
 
 【i-tya基本ルール（解読用）】
 音韻: 母音(a,i,u)、子音(h,k,l,m,n,p,s,t)、半母音(w,y)。
@@ -466,11 +468,6 @@ const generateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruct
 const translateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: translateRules });
 const reverseTranslateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: reverseTranslateRules });
 
-// ─────────────────────────────────────────────
-//  AI呼び出しユーティリティ
-//  ・リトライ最大3回（バリデーションエラーのみ）
-//  ・APIエラーは即座に生のエラーメッセージをログに出して上流に投げる
-// ─────────────────────────────────────────────
 async function callAIWithRetry(model, prompt, maxRetries = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -479,7 +476,6 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
       const result = await model.generateContent(prompt);
       const rawText = result.response.text().replace(/```json|```/g, '').trim();
       console.log(`[AI] Response received (${rawText.length} chars)`);
-      // JSON文字列内のリテラル制御文字をエスケープしてからパース
       const sanitized = rawText.replace(
         /"((?:[^"\\]|\\.)*)"/g,
         (m, inner) => '"' + inner.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + '"'
