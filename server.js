@@ -13,7 +13,7 @@ const path = require('path');
 const CACHE_FILE = path.join(__dirname, 'cache.json');
 const CACHE_TTL = 12 * 60 * 60 * 1000;   // 12 hours
 const TRIVIA_TTL = 60 * 60 * 1000;        // 1 hour
-const AI_MODEL = "gemini-3.1-flash-lite-preview";
+const AI_MODEL = "gemini-2.5-flash";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "itya!";
 
 // ─────────────────────────────────────────────
@@ -476,9 +476,17 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
     try {
       console.log(`[AI] Attempt ${attempt}/${maxRetries}`);
       const result = await model.generateContent(prompt);
-      const text = result.response.text().replace(/```json|```/g, '').trim();
-      console.log(`[AI] Response received (${text.length} chars)`);
-      const parsed = JSON.parse(text);
+      const rawText = result.response.text().replace(/```json|```/g, '').trim();
+      console.log(`[AI] Response received (${rawText.length} chars)`);
+      // JSON文字列値内のリテラル制御文字（改行・タブ等）をエスケープしてからパース
+      const sanitized = rawText.replace(
+        /"((?:[^"\\]|\\.)*)"/g,
+        (match, inner) => '"' + inner
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t') + '"'
+      );
+      const parsed = JSON.parse(sanitized);
       if (parsed.root) parsed.root = parsed.root.toLowerCase();
       if (parsed.status === 'new') validateRoot(parsed.root);
       return parsed;
@@ -628,33 +636,16 @@ app.post('/api/generate', async (req, res) => {
       const aiRes = await callAIWithRetry(generateModel, prompt);
 
       // AIが既存と判断した場合
-      if (aiRes['root_word.2'] || aiRes.status === 'existing') {
-        const rootKey = aiRes['root_word.2'];
-        const posKey = aiRes['part_of_speech_word.2'] || 'noun';
-        const found = rootKey ? findInCacheByRoot(rootKey) : null;
+      if (aiRes.status === 'existing' && aiRes['root_word.2']) {
+        const found = findInCacheByRoot(aiRes['root_word.2']);
         if (found) {
           return {
             status: 'existing', id: found.id, meaning: found.concept_ja,
-            part_of_speech: posKey,
             data: { noun: found.word_noun, verb: found.word_verb, extender: found.word_extender },
             meaning_noun: found.meaning_noun || '', meaning_verb: found.meaning_verb || '', meaning_extender: found.meaning_extender || '',
             reason_noun: found.reason_noun || found.reason || 'No description available.',
             reason_verb: found.reason_verb || found.reason || 'No description available.',
             reason_extender: found.reason_extender || found.reason || 'No description available.'
-          };
-        }
-        // キャッシュミス時：語幹から単語を組み立てて返す
-        if (rootKey) {
-          const suffix = posKey === 'verb' ? 'i' : posKey === 'extender' ? 'u' : 'a';
-          return {
-            status: 'existing',
-            part_of_speech: posKey,
-            root: rootKey,
-            data: { noun: rootKey + 'a', verb: rootKey + 'i', extender: rootKey + 'u' },
-            meaning_noun: '', meaning_verb: '', meaning_extender: '',
-            reason_noun: 'No description available.',
-            reason_verb: 'No description available.',
-            reason_extender: 'No description available.'
           };
         }
       }
