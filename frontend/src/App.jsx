@@ -25,49 +25,148 @@ function parseItyaSyllables(word) {
   }
   return syls.filter(Boolean);
 }
-const SYL_MAP = {
-  'a':'ah','i':'ee','u':'oo',
-  'ha':'hah','hi':'hee','hu':'hoo','ka':'kah','ki':'kee','ku':'koo',
-  'la':'lah','li':'lee','lu':'loo','ma':'mah','mi':'mee','mu':'moo',
-  'na':'nah','ni':'nee','nu':'noo','pa':'pah','pi':'pee','pu':'poo',
-  'sa':'sah','si':'see','su':'soo','ta':'tah','ti':'tee','tu':'too',
-  'wa':'wah','wi':'wee','wu':'woo','ya':'yah','yi':'yee','yu':'yoo',
-  'hwa':'hwah','hwi':'hwee','hwu':'hwoo','kwa':'kwah','kwi':'kwee','kwu':'kwoo',
-  'lwa':'lwah','lwi':'lwee','lwu':'lwoo','mwa':'mwah','mwi':'mwee','mwu':'mwoo',
-  'nwa':'nwah','nwi':'nwee','nwu':'nwoo','pwa':'pwah','pwi':'pwee','pwu':'pwoo',
-  'swa':'swah','swi':'swee','swu':'swoo','twa':'twah','twi':'twee','twu':'twoo',
-  'hya':'hyah','hyi':'hyee','hyu':'hyoo','kya':'kyah','kyi':'kyee','kyu':'kyoo',
-  'lya':'lyah','lyi':'lyee','lyu':'lyoo','mya':'myah','myi':'myee','myu':'myoo',
-  'nya':'nyah','nyi':'nyee','nyu':'nyoo','pya':'pyah','pyi':'pyee','pyu':'pyoo',
-  'sya':'shah','syi':'shee','syu':'shoo','tya':'chah','tyi':'chee','tyu':'choo',
+
+// ローマ字→カタカナ変換（日本語TTSで正確なi-tya発音を実現）
+const ROMA_TO_KANA = {
+  'a':'ア','i':'イ','u':'ウ',
+  'ha':'ハ','hi':'ヒ','hu':'フ',
+  'ka':'カ','ki':'キ','ku':'ク',
+  'la':'ラ','li':'リ','lu':'ル',
+  'ma':'マ','mi':'ミ','mu':'ム',
+  'na':'ナ','ni':'ニ','nu':'ヌ',
+  'pa':'パ','pi':'ピ','pu':'プ',
+  'sa':'サ','si':'スィ','su':'ス',
+  'ta':'タ','ti':'ティ','tu':'トゥ',
+  'wa':'ワ','wi':'ウィ','wu':'ウ',
+  'ya':'ヤ','yi':'イ','yu':'ユ',
+  'hwa':'ファ','hwi':'フィ','hwu':'フ',
+  'kwa':'クァ','kwi':'クィ','kwu':'ク',
+  'lwa':'ルァ','lwi':'ルィ','lwu':'ル',
+  'mwa':'ムァ','mwi':'ムィ','mwu':'ム',
+  'nwa':'ヌァ','nwi':'ヌィ','nwu':'ヌ',
+  'pwa':'プァ','pwi':'プィ','pwu':'プ',
+  'swa':'スァ','swi':'スィ','swu':'ス',
+  'twa':'トァ','twi':'トィ','twu':'ト',
+  'hya':'ヒャ','hyi':'ヒ','hyu':'ヒュ',
+  'kya':'キャ','kyi':'キ','kyu':'キュ',
+  'lya':'リャ','lyi':'リ','lyu':'リュ',
+  'mya':'ミャ','myi':'ミ','myu':'ミュ',
+  'nya':'ニャ','nyi':'ニ','nyu':'ニュ',
+  'pya':'ピャ','pyi':'ピ','pyu':'ピュ',
+  'sya':'シャ','syi':'シ','syu':'シュ',
+  'tya':'チャ','tyi':'チ','tyu':'チュ',
 };
-function speakItya(text) {
+
+function ityaToKana(word) {
+  const syls = parseItyaSyllables(word);
+  return syls.map(s => ROMA_TO_KANA[s] || s).join('');
+}
+
+// テキスト全体をi-tya音節リストに分解
+function buildSyllableMap(text) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const syllables = [];
+  words.forEach((w) => {
+    const syls = parseItyaSyllables(w);
+    syls.forEach(syl => {
+      const kana = ROMA_TO_KANA[syl] || syl;
+      syllables.push({ word: w, syl, kana });
+    });
+  });
+  return syllables;
+}
+
+// ─── カラオケ表示コンポーネント ───
+function KaraokeDisplay({ text, activeSylIndex, syllables }) {
+  if (!text || !syllables || syllables.length === 0) return <span>{text}</span>;
+  const isSpeaking = activeSylIndex >= 0;
+  const wordGroups = [];
+  let cur = null;
+  syllables.forEach((s, i) => {
+    if (!cur || cur.word !== s.word) { cur = { word: s.word, syls: [] }; wordGroups.push(cur); }
+    cur.syls.push({ ...s, idx: i });
+  });
+  return (
+    <span className="karaoke-text">
+      {wordGroups.map((g, wi) => (
+        <React.Fragment key={wi}>
+          {wi > 0 && ' '}
+          <span className="karaoke-word">
+            {g.syls.map(s => (
+              <span
+                key={s.idx}
+                className={`karaoke-syl${isSpeaking ? (s.idx === activeSylIndex ? ' karaoke-active' : ' karaoke-dim') : ''}`}
+              >
+                {s.syl}
+              </span>
+            ))}
+          </span>
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+// 音節ごとのおおよその発音時間(ms)を推定
+// rate=0.85、日本語1モーラ≒約180ms を基準に音節の長さで調整
+function estimateSylDuration(kana, rate = 0.85) {
+  const base = 110 / rate;
+  // 2文字カナ（拗音）は1.3モーラ相当
+  return kana.length >= 2 ? base * 1.3 : base;
+}
+
+function speakItya(text, onSyllable, onEnd) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
+  // 前回のタイマーを管理するため window に退避
+  if (window._ityaTimers) window._ityaTimers.forEach(clearTimeout);
+  window._ityaTimers = [];
+
   const doSpeak = () => {
     const voices = window.speechSynthesis.getVoices();
-    const femaleVoice =
-      voices.find(v => v.lang.startsWith('en') && /samantha|karen|victoria|moira|fiona|tessa|zira|google uk english female/i.test(v.name)) ||
-      voices.find(v => /female/i.test(v.name) && v.lang.startsWith('en')) ||
-      voices.find(v => v.lang === 'en-GB') ||
-      voices.find(v => v.lang.startsWith('en')) || null;
+    const jaVoice =
+      voices.find(v => v.lang === 'ja-JP' && /kyoko|otoya|google 日本語|haruka/i.test(v.name)) ||
+      voices.find(v => v.lang === 'ja-JP') ||
+      voices.find(v => v.lang.startsWith('ja')) || null;
+
+    const rate = 0.85;
     const words = text.trim().split(/\s+/).filter(Boolean);
-    const allSyls = words.map(w => parseItyaSyllables(w).map(s => SYL_MAP[s] || s));
-    const firstSyl = allSyls[0]?.[0] || '';
-    const rest = [...(allSyls[0]?.slice(1) || []), ...allSyls.slice(1).map(ws => ws.join('-'))].join(' ');
-    const makeUtter = (txt, pitch, rate) => {
-      const u = new SpeechSynthesisUtterance(txt);
-      u.lang = 'en-US'; u.pitch = pitch; u.rate = rate; u.volume = 1.0;
-      if (femaleVoice) u.voice = femaleVoice;
-      return u;
+    const kanaText = words.map(w => ityaToKana(w)).join('\u3000');
+    if (!kanaText.trim()) return;
+
+    const syllables = buildSyllableMap(text);
+
+    const u = new SpeechSynthesisUtterance(kanaText);
+    u.lang = 'ja-JP';
+    u.pitch = 1.3;
+    u.rate = rate;
+    u.volume = 1.0;
+    if (jaVoice) u.voice = jaVoice;
+
+    u.onstart = () => {
+      if (!onSyllable) return;
+      // 各音節のタイミングをsetTimeoutで自前スケジュール
+      let elapsed = 0;
+      syllables.forEach((s, i) => {
+        const t = window.setTimeout(() => {
+          onSyllable(i, syllables);
+        }, elapsed);
+        window._ityaTimers.push(t);
+        elapsed += estimateSylDuration(s.kana, rate);
+      });
     };
-    if (firstSyl) {
-      const u1 = makeUtter(firstSyl, 1.8, 0.70);
-      if (rest) u1.onend = () => window.speechSynthesis.speak(makeUtter(rest, 1.55, 0.82));
-      window.speechSynthesis.speak(u1);
-    } else if (rest) {
-      window.speechSynthesis.speak(makeUtter(rest, 1.55, 0.82));
-    }
+
+    u.onend = () => {
+      if (window._ityaTimers) window._ityaTimers.forEach(clearTimeout);
+      if (onSyllable) onSyllable(-1, syllables);
+      if (onEnd) onEnd();
+    };
+    u.onerror = () => {
+      if (window._ityaTimers) window._ityaTimers.forEach(clearTimeout);
+      if (onSyllable) onSyllable(-1, syllables);
+      if (onEnd) onEnd();
+    };
+    window.speechSynthesis.speak(u);
   };
   if (window.speechSynthesis.getVoices().length > 0) doSpeak();
   else window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
@@ -194,6 +293,8 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [anoClicked, setAnoClicked] = useState(false);
   const [reverseResult, setReverseResult] = useState(null);
+  const [activeSyl, setActiveSyl] = useState(-1);
+  const [sylMap, setSylMap] = useState([]);
   const [isReverseMode, setIsReverseMode] = useState(false);
   const [reverseTranslationResult, setReverseTranslationResult] = useState(null);
   const [isReverseTranslateMode, setIsReverseTranslateMode] = useState(false);
@@ -451,28 +552,36 @@ const safeTransition = (callback) => {
       setResult(null); setTranslationResult(null); setReverseResult(null); setReverseTranslationResult(null);
       setIsTranslateMode(false); setIsReverseMode(false); setIsReverseTranslateMode(false);
       setIsSearching(false); setQuery(''); setError(null); setErrorMessage(''); setMode('auto');
+      setActiveSyl(-1); setSylMap([]);
     };
     const scrollToWord = () => {
       if (!targetId) return;
-      const tryScroll = () => {
-        const el = document.querySelector(`[data-word-id="${targetId}"]`);
-        if (el) { el.scrollIntoView({ behavior: 'instant', block: 'center' }); return true; }
-        return false;
-      };
-      if (!tryScroll()) {
-        const observer = new MutationObserver(() => { if (tryScroll()) observer.disconnect(); });
-        observer.observe(document.body, { childList: true, subtree: true });
-        setTimeout(() => observer.disconnect(), 2000);
-      }
+      // rAF x2でReactのDOM更新完了後にスクロール
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = document.querySelector(`[data-word-id="${targetId}"]`);
+          if (el) { el.scrollIntoView({ behavior: 'instant', block: 'center' }); return; }
+          // まだなければMutationObserverで待機
+          const observer = new MutationObserver(() => {
+            const el2 = document.querySelector(`[data-word-id="${targetId}"]`);
+            if (el2) { el2.scrollIntoView({ behavior: 'instant', block: 'center' }); observer.disconnect(); }
+          });
+          observer.observe(document.body, { childList: true, subtree: true });
+          setTimeout(() => observer.disconnect(), 2000);
+        });
+      });
     };
     if (!document.startViewTransition) { doReset(); scrollToWord(); return; }
-    safeTransition(doReset);
-    scrollToWord();
+    const t = document.startViewTransition(() => { doReset(); });
+    // finished後ではなくready後（スナップショット取得後・アニメーション開始前）に
+    // スクロールすることでブラウザの巻き戻しを回避
+    t.ready.then(() => { scrollToWord(); }).catch(() => { scrollToWord(); });
   };
 
   const executeSearch = async (searchQuery) => {
     safeTransition(() => {
       setIsSearching(true); setResult(null); setError(null); setTrivia("トリビアを読み込み中...");
+      setActiveSyl(-1); setSylMap([]);
     });
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
@@ -656,10 +765,11 @@ const safeTransition = (callback) => {
     }
 
     clickedWordIdRef.current = wordData.id;
-    window.scrollTo({ top: 0, behavior: 'instant' });
 
     const showDetail = () => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
       setTrivia('');
+      setActiveSyl(-1); setSylMap([]);
       let parsedRoot = wordData.fullData?.root || "-";
       if (wordData.type === 'complex') parsedRoot = "複合概念";
       setResult({
@@ -833,6 +943,7 @@ const safeTransition = (callback) => {
                               if (el) { el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
                             });
                             setActivePos(e.target.value);
+                            setActiveSyl(-1); setSylMap([]);
                             e.target.blur();
                           }}
                         >
@@ -843,16 +954,24 @@ const safeTransition = (callback) => {
                       )}
                     </div>
 
-                    <div>
-                      <h2 className="word-display">
-                        {result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                      <h2 className="word-display" style={{ margin: 0 }}>
+                        <KaraokeDisplay
+                          text={result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
+                          activeSylIndex={activeSyl}
+                          syllables={sylMap}
+                        />
                       </h2>
-                      <button type="button" className="pronounce-btn" onClick={() => speakItya(
-                        result.wordData && result.status !== 'complexed'
-                          ? (result.wordData[activePos] || result.displayWord)
-                          : result.displayWord
-                      )}>
-                        <Volume2 size={15} strokeWidth={2} /> 発音
+                      <button type="button"
+                        className="index-btn pronounce-icon-btn"
+                        onClick={() => speakItya(
+                          result.wordData && result.status !== 'complexed'
+                            ? (result.wordData[activePos] || result.displayWord)
+                            : result.displayWord,
+                          (idx, syls) => { setActiveSyl(idx); setSylMap(syls); },
+                          () => setActiveSyl(-1)
+                        )}>
+                        <Volume2 size={20} strokeWidth={2.5} />
                       </button>
                     </div>
 
@@ -919,12 +1038,15 @@ const safeTransition = (callback) => {
                   {query}
                   <span className="badge-compound">翻訳</span>
                 </div>
-                <div>
-                  <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
-                    {translationResult.translation}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4', margin: 0 }}>
+                    <KaraokeDisplay text={translationResult.translation} activeSylIndex={activeSyl} syllables={sylMap} />
                   </h2>
-                  <button type="button" className="pronounce-btn" onClick={() => speakItya(translationResult.translation)}>
-                    <Volume2 size={15} strokeWidth={2} /> 発音
+                  <button type="button" className="index-btn pronounce-icon-btn"
+                    onClick={() => speakItya(translationResult.translation,
+                      (idx, syls) => { setActiveSyl(idx); setSylMap(syls); },
+                      () => setActiveSyl(-1))}>
+                    <Volume2 size={20} strokeWidth={2.5} />
                   </button>
                 </div>
                 <div className="reason-text">
@@ -965,12 +1087,15 @@ const safeTransition = (callback) => {
                 </div>
                 {reverseResult.found ? (
                   <>
-                    <div>
-                      <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
-                        {reverseResult.meaning}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                      <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4', margin: 0 }}>
+                        <KaraokeDisplay text={query} activeSylIndex={activeSyl} syllables={sylMap} />
                       </h2>
-                      <button type="button" className="pronounce-btn" onClick={() => speakItya(query)}>
-                        <Volume2 size={15} strokeWidth={2} /> 発音
+                      <button type="button" className="index-btn pronounce-icon-btn"
+                        onClick={() => speakItya(query,
+                          (idx, syls) => { setActiveSyl(idx); setSylMap(syls); },
+                          () => setActiveSyl(-1))}>
+                        <Volume2 size={20} strokeWidth={2.5} />
                       </button>
                     </div>
                     <div className="reason-text">
@@ -1017,12 +1142,15 @@ const safeTransition = (callback) => {
                   {query}
                   <span className="badge-compound">翻訳</span>
                 </div>
-                <div>
-                  <h2 className="word-display word-display-but-japanese" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
-                    {reverseTranslationResult.translation}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                  <h2 className="word-display word-display-but-japanese" style={{ fontSize: '2.2rem', lineHeight: '1.4', margin: 0 }}>
+                    <KaraokeDisplay text={query} activeSylIndex={activeSyl} syllables={sylMap} />
                   </h2>
-                  <button type="button" className="pronounce-btn" onClick={() => speakItya(query)}>
-                    <Volume2 size={15} strokeWidth={2} /> 発音
+                  <button type="button" className="index-btn pronounce-icon-btn"
+                    onClick={() => speakItya(query,
+                      (idx, syls) => { setActiveSyl(idx); setSylMap(syls); },
+                      () => setActiveSyl(-1))}>
+                    <Volume2 size={20} strokeWidth={2.5} />
                   </button>
                 </div>
                 <div className="reason-text">
