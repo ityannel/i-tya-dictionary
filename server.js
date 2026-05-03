@@ -412,11 +412,6 @@ yu=もし～なら（未確定の条件）: Pa pati lamena yu, pa petati.
 rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であってはならない。
 既存リストを必ず確認し、類似概念があればそれを使え。
 
-【⚠️翻訳文の絶対ルール】
-"translation"フィールドおよびbreakdownの"itya"フィールドは、必ず全ての単語を完成形（語尾母音あり）で出力すること。
-語幹（root）のみで終わっている単語は絶対に禁止。
-例: 「halay-」「halay」は不正。「halaya」（名詞）「halayi」（動詞）「halayu」（拡張詞）のいずれかにすること。
-
 【出力フォーマット】
 {
   "translation": "完成したi-tya語文章",
@@ -483,12 +478,10 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
       const result = await model.generateContent(prompt);
       const rawText = result.response.text().replace(/```json|```/g, '').trim();
       console.log(`[AI] Response received (${rawText.length} chars)`);
+      // JSON文字列内のリテラル制御文字をエスケープしてからパース
       const sanitized = rawText.replace(
         /"((?:[^"\\]|\\.)*)"/g,
-        (match, inner) => '"' + inner
-          .replace(/\n/g, '\\n')
-          .replace(/\r/g, '\\r')
-          .replace(/\t/g, '\\t') + '"'
+        (m, inner) => '"' + inner.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + '"'
       );
       const parsed = JSON.parse(sanitized);
       if (parsed.root) parsed.root = parsed.root.toLowerCase();

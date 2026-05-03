@@ -1315,8 +1315,8 @@ body {
   align-items: center;
   gap: 5px;
   background: rgba(112, 255, 112, 0.08);
-  border: 1px solid rgba(112, 255, 112, 0.3);
-  color: rgba(112, 255, 112, 0.75);
+  border: 1px solid rgba(112, 255, 112, 0.28);
+  color: rgba(112, 255, 112, 0.72);
   border-radius: 20px;
   padding: 5px 14px;
   font-size: 0.82rem;
@@ -1331,6 +1331,4 @@ body {
   border-color: rgba(112, 255, 112, 0.6);
   color: rgba(112, 255, 112, 1);
 }
-.pronounce-btn:active {
-  transform: scale(0.95);
-}
+.pronounce-btn:active { transform: scale(0.95); }

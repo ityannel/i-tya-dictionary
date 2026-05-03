@@ -7,41 +7,134 @@ import DictionaryList from './DictionaryList';
 import anoSvg from './ano.svg';
 
 // ─── i-tya語発音ユーティリティ ───
-// 音節: (C)(G)V。子音h,k,l,m,n,p,s,t / 半母音w,y / 母音a,i,u
-// Web Speech API で英語発音に近いローマ字読みにマッピング
+// 音韻規則に準拠: (C)(G)V構造、子音h/k/l/m/n/p/s/t、半母音w/y、母音a/i/u
+// アクセント: 必ず第一音節に強勢（ドキュメント2.2.3）
+
+// 音節分解: word → ['tya','ma','nu'] など
+function parseItyaSyllables(word) {
+  const w = word.toLowerCase().replace(/[^a-z]/g, '');
+  const cons  = new Set(['h','k','l','m','n','p','s','t']);
+  const glide = new Set(['w','y']);
+  const vowel = new Set(['a','i','u']);
+  const syls = [];
+  let i = 0;
+  while (i < w.length) {
+    let syl = '';
+    if (i < w.length && cons.has(w[i]))  { syl += w[i]; i++; }
+    if (i < w.length && glide.has(w[i])) { syl += w[i]; i++; }
+    if (i < w.length && vowel.has(w[i])) { syl += w[i]; i++; }
+    else if (i < w.length && glide.has(w[i])) { syl += w[i]; i++; } // GV fallback
+    if (syl) syls.push(syl); else { syls.push(w[i] || ''); i++; }
+  }
+  return syls.filter(Boolean);
+}
+
+// 音節 → Web Speech API 用読み仮名（明瞭・曖昧なし）
+const SYL_MAP = {
+  // 母音単体
+  'a':'ah','i':'ee','u':'oo',
+  // CV - h
+  'ha':'hah','hi':'hee','hu':'hoo',
+  // CV - k
+  'ka':'kah','ki':'kee','ku':'koo',
+  // CV - l
+  'la':'lah','li':'lee','lu':'loo',
+  // CV - m
+  'ma':'mah','mi':'mee','mu':'moo',
+  // CV - n
+  'na':'nah','ni':'nee','nu':'noo',
+  // CV - p
+  'pa':'pah','pi':'pee','pu':'poo',
+  // CV - s
+  'sa':'sah','si':'see','su':'soo',
+  // CV - t
+  'ta':'tah','ti':'tee','tu':'too',
+  // GV
+  'wa':'wah','wi':'wee','wu':'woo',
+  'ya':'yah','yi':'yee','yu':'yoo',
+  // CGV - +w
+  'hwa':'hwah','hwi':'hwee','hwu':'hwoo',
+  'kwa':'kwah','kwi':'kwee','kwu':'kwoo',
+  'lwa':'lwah','lwi':'lwee','lwu':'lwoo',
+  'mwa':'mwah','mwi':'mwee','mwu':'mwoo',
+  'nwa':'nwah','nwi':'nwee','nwu':'nwoo',
+  'pwa':'pwah','pwi':'pwee','pwu':'pwoo',
+  'swa':'swah','swi':'swee','swu':'swoo',
+  'twa':'twah','twi':'twee','twu':'twoo',
+  // CGV - +y  ※ sy→sh、ty→ch（ドキュメント音韻表より）
+  'hya':'hyah','hyi':'hyee','hyu':'hyoo',
+  'kya':'kyah','kyi':'kyee','kyu':'kyoo',
+  'lya':'lyah','lyi':'lyee','lyu':'lyoo',
+  'mya':'myah','myi':'myee','myu':'myoo',
+  'nya':'nyah','nyi':'nyee','nyu':'nyoo',
+  'pya':'pyah','pyi':'pyee','pyu':'pyoo',
+  'sya':'shah','syi':'shee','syu':'shoo',
+  'tya':'chah','tyi':'chee','tyu':'choo',
+};
+
+function sylToPhonetic(syl) {
+  return SYL_MAP[syl] || syl;
+}
+
+// 単語単位で音節変換し、第一音節に強勢を付けて発音
 function speakItya(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  // i-tya音素 → 英語発音向け変換
-  const phonetic = text
-    .toLowerCase()
-    .replace(/ny/g, 'ɲ')   // ny → 軟口蓋
-    .replace(/sy/g, 'sh')  // sy → sh
-    .replace(/ty/g, 'ch')  // ty → ch
-    .replace(/ky/g, 'ky')
-    .replace(/wy/g, 'wi')
-    .replace(/wu/g, 'woo')
-    .replace(/wi/g, 'wee')
-    .replace(/wa/g, 'wah')
-    .replace(/ya/g, 'yah')
-    .replace(/yi/g, 'yee')
-    .replace(/yu/g, 'yoo')
-    .replace(/hu/g, 'hoo')
-    .replace(/ha/g, 'hah')
-    .replace(/hi/g, 'hee')
-    .replace(/lu/g, 'loo')
-    .replace(/la/g, 'lah')
-    .replace(/li/g, 'lee')
-    .replace(/([^aeiou])a/g, '$1ah')
-    .replace(/([^aeiou])i/g, '$1ee')
-    .replace(/([^aeiou])u/g, '$1oo')
-    .replace(/^a/, 'ah').replace(/^i/, 'ee').replace(/^u/, 'oo')
-    .replace(/ɲ/g, 'ny');
-  const utter = new SpeechSynthesisUtterance(phonetic);
-  utter.lang = 'en-US';
-  utter.rate = 0.85;
-  utter.pitch = 1.1;
-  window.speechSynthesis.speak(utter);
+
+  const getVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    // 英語女性声を優先（Samantha/Karen/Victoriaなど）
+    return (
+      voices.find(v => v.lang.startsWith('en') && /samantha|karen|victoria|moira|fiona|tessa|zira/i.test(v.name)) ||
+      voices.find(v => v.lang === 'en-US' && /female/i.test(v.name)) ||
+      voices.find(v => v.lang.startsWith('en')) ||
+      null
+    );
+  };
+
+  const doSpeak = () => {
+    const voice = getVoice();
+    const words = text.trim().split(/\s+/).filter(Boolean);
+
+    // 全単語を音節変換し、単語間はスペース、音節間はハイフン（発音の切れ目）
+    // 第一音節を別発話で強調するため、最初の単語の第一音節だけ分離
+    const firstWord = words[0] || '';
+    const restWords = words.slice(1);
+
+    const firstSyls = parseItyaSyllables(firstWord);
+    const firstSyl = firstSyls[0] ? sylToPhonetic(firstSyls[0]) : '';
+    const firstRest = firstSyls.slice(1).map(sylToPhonetic).join('-');
+    const restPhonetic = restWords.map(w =>
+      parseItyaSyllables(w).map(sylToPhonetic).join('-')
+    ).join(' ');
+
+    const speak = (txt, pitch, rate, onEnd) => {
+      const u = new SpeechSynthesisUtterance(txt);
+      u.lang = 'en-US';
+      u.pitch = pitch;
+      u.rate = rate;
+      u.volume = 1.0;
+      if (voice) u.voice = voice;
+      if (onEnd) u.onend = onEnd;
+      window.speechSynthesis.speak(u);
+    };
+
+    // 第一音節: 高ピッチ＋やや遅め（強勢）
+    // 残り: 少し低めのピッチ（非強勢）
+    const afterFirst = [firstRest, restPhonetic].filter(Boolean).join(' ');
+
+    if (firstSyl) {
+      speak(firstSyl, 1.7, 0.72, afterFirst ? () => speak(afterFirst, 1.5, 0.82, null) : null);
+    } else if (afterFirst) {
+      speak(afterFirst, 1.5, 0.82, null);
+    }
+  };
+
+  if (window.speechSynthesis.getVoices().length > 0) {
+    doSpeak();
+  } else {
+    window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
+  }
 }
 
 // ─── 管理者ログインモーダル ───
@@ -423,10 +516,8 @@ const safeTransition = (callback) => {
       setIsTranslateMode(false); setIsReverseMode(false); setIsReverseTranslateMode(false);
       setIsSearching(false); setQuery(''); setError(null); setErrorMessage(''); setMode('auto');
     };
-
     const scrollToWord = () => {
       if (!targetId) return;
-      // DOMに要素が現れるまで待ってからスクロール
       const tryScroll = () => {
         const el = document.querySelector(`[data-word-id="${targetId}"]`);
         if (el) { el.scrollIntoView({ behavior: 'instant', block: 'center' }); return true; }
@@ -437,16 +528,10 @@ const safeTransition = (callback) => {
           if (tryScroll()) observer.disconnect();
         });
         observer.observe(document.body, { childList: true, subtree: true });
-        // 2秒後に諦める
         setTimeout(() => observer.disconnect(), 2000);
       }
     };
-
-    if (!document.startViewTransition) {
-      doReset();
-      scrollToWord();
-      return;
-    }
+    if (!document.startViewTransition) { doReset(); scrollToWord(); return; }
     safeTransition(doReset);
     scrollToWord();
   };
@@ -827,16 +912,13 @@ const safeTransition = (callback) => {
                     <h2 className="word-display">
                       {result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
                     </h2>
-                    <button
-                      className="pronounce-btn"
-                      onClick={() => speakItya(result.wordData && result.status !== 'complexed' ? (result.wordData[activePos] || result.displayWord) : result.displayWord)}
-                      title="発音を聞く"
-                    >
-                      <Volume2 size={16} strokeWidth={2} />
-                      発音
+                    <button className="pronounce-btn" onClick={() => speakItya(
+                      result.wordData && result.status !== 'complexed'
+                        ? (result.wordData[activePos] || result.displayWord)
+                        : result.displayWord
+                    )}>
+                      <Volume2 size={15} strokeWidth={2} /> 発音
                     </button>
-
-                    <div className="reason-text">
                       {result.status === 'complexed' || !result.wordData
                         ? result.reason
                         : (activePos === 'noun' ? (result.reason_noun || result.reason)
@@ -902,15 +984,9 @@ const safeTransition = (callback) => {
                 <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                   {translationResult.translation}
                 </h2>
-                <button
-                  className="pronounce-btn"
-                  onClick={() => speakItya(translationResult.translation)}
-                  title="発音を聞く"
-                >
-                  <Volume2 size={16} strokeWidth={2} />
-                  発音
+                <button className="pronounce-btn" onClick={() => speakItya(translationResult.translation)}>
+                  <Volume2 size={15} strokeWidth={2} /> 発音
                 </button>
-                <div className="reason-text">
                   {translationResult.breakdown?.map((item, i) => (
                     <div key={i} style={{ marginBottom: '8px' }}>
                       <span style={{ opacity: 0.6 }}>{item.japanese}</span>
@@ -951,15 +1027,9 @@ const safeTransition = (callback) => {
                     <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                       {reverseResult.meaning}
                     </h2>
-                    <button
-                      className="pronounce-btn"
-                      onClick={() => speakItya(query)}
-                      title="発音を聞く"
-                    >
-                      <Volume2 size={16} strokeWidth={2} />
-                      発音
+                    <button className="pronounce-btn" onClick={() => speakItya(query)}>
+                      <Volume2 size={15} strokeWidth={2} /> 発音
                     </button>
-                    <div className="reason-text">
                       {reverseResult.pos && (
                         <div style={{ marginBottom: '8px', opacity: 0.7 }}>
                           品詞: {reverseResult.pos === 'noun' ? '名詞 (-a)' : reverseResult.pos === 'verb' ? '動詞 (-i)' : '拡張詞 (-u)'}
@@ -1006,15 +1076,9 @@ const safeTransition = (callback) => {
                 <h2 className="word-display word-display-but-japanese" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                   {reverseTranslationResult.translation}
                 </h2>
-                <button
-                  className="pronounce-btn"
-                  onClick={() => speakItya(query)}
-                  title="i-tya原文の発音を聞く"
-                >
-                  <Volume2 size={16} strokeWidth={2} />
-                  発音
+                <button className="pronounce-btn" onClick={() => speakItya(query)}>
+                  <Volume2 size={15} strokeWidth={2} /> 発音
                 </button>
-                <div className="reason-text">
                   {reverseTranslationResult.breakdown?.map((item, i) => (
                     <div key={i} style={{ marginBottom: '8px' }}>
                       <strong>{item.itya}</strong>
