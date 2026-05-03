@@ -355,6 +355,10 @@ const ityaRules = `
 const translateRules = `
 あなたはi-tya言語の翻訳コンパイラだ。日本語文章をi-tya語に翻訳し、JSONのみ出力せよ。
 
+【絶対禁止】"translation"フィールドおよび"itya"フィールドに語幹（root）をそのまま出力することは絶対に禁止。
+必ず語尾母音（-a/-i/-u）を付けた完成形の単語のみを出力すること。いかなる単語も子音で終わってはならない。
+例：語幹「was」→ 名詞「wasa」、動詞「wasi」、拡張詞「wasu」として出力。
+
 【i-tya基本ルール】
 音韻: 母音(a,i,u)、子音(h,k,l,m,n,p,s,t)、半母音(w,y)。音節構造(C)(G)V。子音終わり禁止。
 品詞: -a=名詞、-i=動詞、-u=拡張詞。語末母音で一意に決まる。兼任不可。
@@ -621,7 +625,7 @@ app.post('/api/generate', async (req, res) => {
     const checkListStr = buildWordListStr();
     const prompt = `
 概念: 「${concept}」
-既存リスト: ${checkListStr}
+既存リスト（語幹のみ。語幹+a=名詞, +i=動詞, +u=拡張詞）: ${checkListStr}
 
 上記のリストを必ず確認し、類似・包含される概念がすでに存在しないかを最優先で精査しなさい。
 絶対にルールとJSONフォーマットに従い出力すること。`;
@@ -740,7 +744,7 @@ app.post('/api/translate', async (req, res) => {
       const checkListStr = buildWordListStr();
       const prompt = `
 文章: 「${sentence}」
-既存リスト: ${checkListStr}
+既存リスト（語幹のみ。語幹+a=名詞, +i=動詞, +u=拡張詞）: ${checkListStr}
 上記リストを最大限活用し、翻訳せよ。
       `;
 
