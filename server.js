@@ -140,10 +140,13 @@ function removeFromCache(id) {
 
 function buildWordListStr() {
   return memCache.words.map(w => {
-    const word = w.word_noun || w.word_verb || w.word_extender;
-    if (!word) return '';
-    const root = word.length <= 2 ? word : word.slice(0, -1);
-    return `${w.concept_ja || w.meaning}: ${root}`;
+    const forms = [
+      w.word_noun     ? `${w.word_noun}(名)` : '',
+      w.word_verb     ? `${w.word_verb}(動)` : '',
+      w.word_extender ? `${w.word_extender}(拡)` : ''
+    ].filter(Boolean).join('/');
+    if (!forms) return '';
+    return `${w.concept_ja || w.meaning}: ${forms}`;
   }).filter(Boolean).join(', ');
 }
 
@@ -439,11 +442,13 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 
 const reverseTranslateRules = `
 あなたはi-tya言語の逆翻訳コンパイラだ。i-tya語の文章を日本語に翻訳し、JSONのみ出力せよ。
-文章を出力する際、絶対に語幹のみを出力してはならず、それぞれの意味（品詞）に応じて適当に語尾を変化させること。
-いかなる単語も、子音で終わってはならず、かならずa, i, uのいずれかで終わらなければならない。
+
+【最重要ルール】
+1. 渡された辞書に存在しない単語は、絶対に意味を捏造するな。"unknown"としてそのままi-tya語を返せ。
+2. 辞書に存在する単語のみ日本語に訳せ。
+3. 語末の母音（-a=名詞、-i=動詞、-u=拡張詞）で品詞を判定し、自然な日本語に変換せよ。
 
 【i-tya基本ルール（解読用）】
-音韻: 母音(a,i,u)、子音(h,k,l,m,n,p,s,t)、半母音(w,y)。
 品詞: -a=名詞、-i=動詞、-u=拡張詞。
 時制・助詞: nu=完了/過去、hu=否定、nyu=疑問、ku=～へ、mu=～から/の、su=～で/に、tu=手段
 接続: pu=そして、pyu=または、syu=だから、yu=もし
@@ -457,12 +462,13 @@ const reverseTranslateRules = `
 
 【出力フォーマット】
 {
-  "translation": "日本語訳",
+  "translation": "日本語訳。辞書にない単語は「(tit)」のようにi-tya語をそのまま括弧で残せ。",
   "breakdown": [
     {
       "itya": "i-tya語の要素",
-      "japanese": "対応する日本語",
-      "role": "品詞・機能の説明"
+      "japanese": "対応する日本語。辞書にない場合は「(未登録)」",
+      "role": "品詞・機能の説明",
+      "status": "known | unknown | grammar"
     }
   ]
 }
@@ -625,7 +631,7 @@ app.post('/api/generate', async (req, res) => {
     const checkListStr = buildWordListStr();
     const prompt = `
 概念: 「${concept}」
-既存リスト（語幹のみ。語幹+a=名詞, +i=動詞, +u=拡張詞）: ${checkListStr}
+既存リスト: ${checkListStr}
 
 上記のリストを必ず確認し、類似・包含される概念がすでに存在しないかを最優先で精査しなさい。
 絶対にルールとJSONフォーマットに従い出力すること。`;
@@ -744,7 +750,7 @@ app.post('/api/translate', async (req, res) => {
       const checkListStr = buildWordListStr();
       const prompt = `
 文章: 「${sentence}」
-既存リスト（語幹のみ。語幹+a=名詞, +i=動詞, +u=拡張詞）: ${checkListStr}
+既存リスト: ${checkListStr}
 上記リストを最大限活用し、翻訳せよ。
       `;
 
@@ -905,6 +911,8 @@ app.post('/api/reverse-translate', async (req, res) => {
 
 【i-tya辞書】
 ${wordList}
+
+【重要】この辞書に存在しない単語は意味を捏造せず、translation内では「(単語名)」の形でそのまま残し、breakdownのstatusは"unknown"とせよ。
 
 上記の辞書を参照し、以下のi-tya文章を自然な日本語に翻訳せよ。
 出力は必ずJSONのみ。翻訳文は "translation" フィールドに、語ごとの内訳は "breakdown" 配列に入れよ。
