@@ -199,11 +199,30 @@ function buildSyllableMap(text) {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const syllables = [];
   words.forEach((w) => {
-    const clean = w.replace(/[^a-zA-Z]/g, ''); // 記号除去（音節解析用）
-    const syls = parseItyaSyllables(clean);
-    syls.forEach(syl => {
-      const kana = ROMA_TO_KANA[syl] || syl;
-      syllables.push({ word: w, syl, kana }); // word は元のまま保持
+    const syls = parseItyaSyllables(w); // 元wordをそのまま渡す（大文字保持）
+
+    // 元のword文字列を走査して、各音節に対応する文字列（大文字・記号込み）を割り当てる
+    // アルファベットをsyl.length分消費し、途中の記号はそのまま取り込む
+    const charGroups = [];
+    let wi = 0;
+    syls.forEach((syl) => {
+      let chars = '';
+      let consumed = 0;
+      while (wi < w.length && consumed < syl.length) {
+        if (/[a-zA-Z]/.test(w[wi])) { chars += w[wi]; consumed++; wi++; }
+        else { chars += w[wi]; wi++; }
+      }
+      charGroups.push(chars);
+    });
+    // 末尾に残った記号（?など）を最後の音節グループへ結合
+    if (charGroups.length > 0 && wi < w.length) {
+      charGroups[charGroups.length - 1] += w.slice(wi);
+    }
+
+    syls.forEach((syl, si) => {
+      const sylLower = syl.toLowerCase();
+      const kana = ROMA_TO_KANA[sylLower] || sylLower;
+      syllables.push({ word: w, syl, kana, displayChars: charGroups[si] != null ? charGroups[si] : syl });
     });
   });
   return syllables;
@@ -213,31 +232,29 @@ function buildSyllableMap(text) {
 function KaraokeDisplay({ text, activeSylIndex, syllables }) {
   if (!text || !syllables || syllables.length === 0) return <span>{text}</span>;
   const isSpeaking = activeSylIndex >= 0;
-
-  // wordグループを構築（各グループに含まれる音節インデックスを記録）
   const wordGroups = [];
   let cur = null;
   syllables.forEach((s, i) => {
-    if (!cur || cur.word !== s.word) { cur = { word: s.word, indices: [] }; wordGroups.push(cur); }
-    cur.indices.push(i);
+    if (!cur || cur.word !== s.word) { cur = { word: s.word, syls: [] }; wordGroups.push(cur); }
+    cur.syls.push({ ...s, idx: i });
   });
-
   return (
     <span className="karaoke-text">
-      {wordGroups.map((g, wi) => {
-        const isActive = isSpeaking && g.indices.includes(activeSylIndex);
-        const isDim    = isSpeaking && !isActive;
-        return (
-          <React.Fragment key={wi}>
-            {wi > 0 && ' '}
-            <span
-              className={`karaoke-word${isActive ? ' karaoke-active' : ''}${isDim ? ' karaoke-dim' : ''}`}
-            >
-              {g.word}
-            </span>
-          </React.Fragment>
-        );
-      })}
+      {wordGroups.map((g, wi) => (
+        <React.Fragment key={wi}>
+          {wi > 0 && ' '}
+          <span className="karaoke-word">
+            {g.syls.map(s => (
+              <span
+                key={s.idx}
+                className={`karaoke-syl${isSpeaking ? (s.idx === activeSylIndex ? ' karaoke-active' : ' karaoke-dim') : ''}`}
+              >
+                {s.displayChars != null ? s.displayChars : s.syl}
+              </span>
+            ))}
+          </span>
+        </React.Fragment>
+      ))}
     </span>
   );
 }
@@ -763,10 +780,12 @@ const safeTransition = (callback) => {
 
       const finishSearching = () => {
         const finalStatus = data.status || (data.data ? 'existing' : 'unknown');
-        if (finalStatus === "new") {
-          const effects = ["confetti", "stars", "fireworks"];
-          triggerCelebration(effects[Math.floor(Math.random() * effects.length)]);
+        const isNew = finalStatus === 'new' || data.is_new === true;
+        if (isNew) {
+          triggerCelebration(true);  // 盛大
           SE_NEW_WORD();
+        } else {
+          triggerCelebration(false); // 通常エフェクト（毎回）
         }
         SE_RESULT();
         setResult({
@@ -810,7 +829,8 @@ const safeTransition = (callback) => {
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
       const data = await res.json();
       if (!data.translation) { setError('connection'); setIsSearching(false); return; }
-      safeTransition(() => { SE_RESULT(); setTranslationResult(data); setIsSearching(false); });
+      const hasNewWord = Array.isArray(data.words) && data.words.some(w => w.is_new || w.status === 'new');
+      safeTransition(() => { SE_RESULT(); triggerCelebration(hasNewWord); setTranslationResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("翻訳通信エラー:", err);
       setError('connection'); setIsSearching(false);
@@ -838,7 +858,7 @@ const safeTransition = (callback) => {
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
       const data = await res.json();
       if (data.error) { setError('invalid'); setIsSearching(false); return; }
-      safeTransition(() => { SE_RESULT(); setReverseResult(data); setIsSearching(false); });
+      safeTransition(() => { SE_RESULT(); triggerCelebration(false); setReverseResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("逆引き通信エラー:", err);
       setError('connection'); setIsSearching(false);
@@ -866,7 +886,7 @@ const safeTransition = (callback) => {
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
       const data = await res.json();
       if (!data.translation) { setError('connection'); setIsSearching(false); return; }
-      safeTransition(() => { SE_RESULT(); setReverseTranslationResult(data); setIsSearching(false); });
+      safeTransition(() => { SE_RESULT(); triggerCelebration(false); setReverseTranslationResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("逆翻訳通信エラー:", err);
       setError('connection'); setIsSearching(false);
@@ -941,24 +961,107 @@ const safeTransition = (callback) => {
     safeTransition(showDetail);
   };
 
-  const triggerCelebration = (type) => {
-    const duration = 3 * 1000;
+  const triggerCelebration = (grand = false) => {
+    const duration = grand ? 5000 : 2500;
     const end = Date.now() + duration;
-    if (type === 'confetti') {
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#70ff70', '#ffffff', '#4a1c53'] });
-    } else if (type === 'stars') {
-      const defaults = { spread: 360, ticks: 50, gravity: 0, decay: 0.94, startVelocity: 30, colors: ['FFE400', 'FFBD00', 'E89400', 'FFCA6C', 'FDFFB8'] };
-      const shoot = () => {
-        confetti({ ...defaults, particleCount: 40, scalar: 1.2, shapes: ['star'] });
-        confetti({ ...defaults, particleCount: 10, scalar: 0.75, shapes: ['circle'] });
-      };
-      setTimeout(shoot, 0); setTimeout(shoot, 100); setTimeout(shoot, 200);
-    } else if (type === 'fireworks') {
-      (function frame() {
-        confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#70ff70'] });
-        confetti({ particleCount: 2, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#ffffff'] });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      }());
+
+    // ─── エフェクト定義集 ───
+    const effects = {
+      // 紙吹雪（テーマカラー）
+      confetti: () => {
+        confetti({ particleCount: grand ? 220 : 100, spread: 80, origin: { y: 0.55 }, colors: ['#70ff70', '#ffffff', '#4a1c53', '#ffdd00', '#ff70c0'] });
+      },
+      // 星
+      stars: () => {
+        const defaults = { spread: 360, ticks: 60, gravity: 0.2, decay: 0.93, startVelocity: grand ? 35 : 25, colors: ['#FFE400','#FFBD00','#E89400','#ff70c0','#70ffff'] };
+        const shoot = () => {
+          confetti({ ...defaults, particleCount: grand ? 60 : 30, scalar: 1.3, shapes: ['star'] });
+          confetti({ ...defaults, particleCount: grand ? 20 : 8, scalar: 0.8, shapes: ['circle'] });
+        };
+        shoot();
+        if (grand) { setTimeout(shoot, 150); setTimeout(shoot, 300); }
+      },
+      // 花火（左右から）
+      fireworks: () => {
+        let i = 0;
+        const max = grand ? 80 : 30;
+        (function frame() {
+          confetti({ particleCount: 3, angle: 60,  spread: 60, origin: { x: 0,    y: 0.8 }, colors: ['#70ff70','#ffdd00','#ff70c0'] });
+          confetti({ particleCount: 3, angle: 120, spread: 60, origin: { x: 1,    y: 0.8 }, colors: ['#ffffff','#70ffff','#4a1c53'] });
+          confetti({ particleCount: 2, angle: 90,  spread: 80, origin: { x: 0.5,  y: 0.9 }, colors: ['#ffdd00','#ff70c0'] });
+          if (++i < max) requestAnimationFrame(frame);
+        }());
+      },
+      // 虹の紙吹雪（左→右へ流れる）
+      rainbow: () => {
+        const colors = ['#ff0000','#ff7700','#ffdd00','#00ff00','#00aaff','#7700ff','#ff00aa'];
+        colors.forEach((color, ci) => {
+          setTimeout(() => {
+            confetti({ particleCount: grand ? 30 : 15, spread: 50, origin: { x: ci / (colors.length - 1), y: 0.4 }, colors: [color], scalar: 1.1, gravity: 0.6 });
+          }, ci * (grand ? 80 : 120));
+        });
+      },
+      // ハート
+      hearts: () => {
+        const heartShape = confetti.shapeFromText({ text: '❤', scalar: 2 });
+        confetti({ shapes: [heartShape], particleCount: grand ? 60 : 25, spread: 120, origin: { y: 0.5 }, scalar: 1.5, gravity: 0.5, ticks: grand ? 80 : 50 });
+        if (grand) setTimeout(() => {
+          confetti({ shapes: [heartShape], particleCount: 40, spread: 90, origin: { x: 0.3, y: 0.6 }, scalar: 1.2, gravity: 0.6, ticks: 70 });
+          confetti({ shapes: [heartShape], particleCount: 40, spread: 90, origin: { x: 0.7, y: 0.6 }, scalar: 1.2, gravity: 0.6, ticks: 70 });
+        }, 300);
+      },
+      // 雪（ゆっくり落下）
+      snow: () => {
+        let i = 0;
+        const max = grand ? 60 : 25;
+        (function frame() {
+          confetti({ particleCount: 2, angle: 90, spread: 120, origin: { x: Math.random(), y: 0 }, colors: ['#ffffff','#aaddff','#ddeeff'], gravity: 0.3, ticks: 200, scalar: 1.2, shapes: ['circle'] });
+          if (++i < max) setTimeout(frame, 80);
+        }());
+      },
+      // 三角形・四角形ミックス
+      shapes: () => {
+        confetti({ particleCount: grand ? 140 : 60, spread: 100, origin: { y: 0.5 }, shapes: ['square','circle'], colors: ['#70ff70','#ff70c0','#ffdd00','#70ffff','#ffffff'], scalar: 1.2 });
+      },
+      // キラキラ（中央爆発）
+      sparkle: () => {
+        [0, 100, 200, 300].forEach(t => setTimeout(() => {
+          confetti({ particleCount: grand ? 50 : 20, spread: 360, ticks: 50, gravity: 0, decay: 0.95, startVelocity: grand ? 20 : 12, origin: { x: 0.5, y: 0.5 }, colors: ['#FFE400','#ffffff','#70ffff','#ff70c0'] });
+        }, t));
+      },
+      // 絵文字パーティ
+      emoji: () => {
+        const emojis = ['🎉','✨','🌟','💫','🎊'];
+        emojis.forEach((e, i) => {
+          setTimeout(() => {
+            confetti({ shapes: [confetti.shapeFromText({ text: e, scalar: 2 })], particleCount: grand ? 20 : 10, spread: 100, origin: { x: 0.2 + i * 0.15, y: 0.5 }, scalar: 1.5, gravity: 0.5, ticks: 60 });
+          }, i * 80);
+        });
+      },
+    };
+
+    if (grand) {
+      // 盛大モード: 複数エフェクトを連続発火
+      effects.fireworks();
+      setTimeout(() => effects.stars(),    400);
+      setTimeout(() => effects.confetti(), 700);
+      setTimeout(() => effects.rainbow(),  1100);
+      setTimeout(() => effects.hearts(),   1600);
+      setTimeout(() => effects.sparkle(),  2200);
+      setTimeout(() => effects.emoji(),    2800);
+      setTimeout(() => effects.fireworks(), 3500);
+      setTimeout(() => {
+        confetti({ particleCount: 300, spread: 180, origin: { y: 0.5 }, colors: ['#70ff70','#ffffff','#4a1c53','#ffdd00','#ff70c0','#70ffff'], scalar: 1.3 });
+      }, 4200);
+    } else {
+      // 通常モード: ランダムに1〜2種類
+      const keys = Object.keys(effects);
+      const pick = keys[Math.floor(Math.random() * keys.length)];
+      effects[pick]();
+      if (Math.random() < 0.4) {
+        const pick2 = keys[Math.floor(Math.random() * keys.length)];
+        setTimeout(() => effects[pick2](), 500);
+      }
     }
   };
 
