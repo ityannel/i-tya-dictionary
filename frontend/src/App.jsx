@@ -395,15 +395,13 @@ const safeTransition = (callback) => {
       }));
       return;
     }
-    const transition = document.startViewTransition(doReset);
-    transition.updateCallbackDone.then(() => {
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (targetId) {
-          const el = document.querySelector(`[data-word-id="${targetId}"]`);
-          if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-        }
-      }));
-    });
+    safeTransition(doReset);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (targetId) {
+        const el = document.querySelector(`[data-word-id="${targetId}"]`);
+        if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      }
+    }));
   };
 
   const executeSearch = async (searchQuery) => {
@@ -620,8 +618,7 @@ const safeTransition = (callback) => {
       setIsSearching(false); setError(null);
     };
 
-    if (document.startViewTransition) document.startViewTransition(showDetail);
-    else showDetail();
+    safeTransition(safeDetail);
   };
 
   const triggerCelebration = (type) => {
