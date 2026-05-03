@@ -321,6 +321,7 @@ const ityaRules = `
 4. 既存・類似概念の場合:
 
 {
+  "status": "existing",
   "part_of_speech_word.2": "noun | verb | extender（ユーザーの入力に合わせて、いずれかを選び、その型をそのまま出力すること）",
   "root_word.2": "（既存の語幹）"
 }
