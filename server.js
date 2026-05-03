@@ -481,6 +481,8 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
       const parsed = JSON.parse(text);
       if (parsed.root) parsed.root = parsed.root.toLowerCase();
       if (parsed.status === 'new') validateRoot(parsed.root);
+      const text = result.response.text().replace(/```json|```/g, '').trim();
+      console.log(`[AI] Raw response: ${text}`);
       return parsed;
     } catch (err) {
       lastError = err;
