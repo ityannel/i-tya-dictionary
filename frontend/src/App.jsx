@@ -213,29 +213,31 @@ function buildSyllableMap(text) {
 function KaraokeDisplay({ text, activeSylIndex, syllables }) {
   if (!text || !syllables || syllables.length === 0) return <span>{text}</span>;
   const isSpeaking = activeSylIndex >= 0;
+
+  // wordグループを構築（各グループに含まれる音節インデックスを記録）
   const wordGroups = [];
   let cur = null;
   syllables.forEach((s, i) => {
-    if (!cur || cur.word !== s.word) { cur = { word: s.word, syls: [] }; wordGroups.push(cur); }
-    cur.syls.push({ ...s, idx: i });
+    if (!cur || cur.word !== s.word) { cur = { word: s.word, indices: [] }; wordGroups.push(cur); }
+    cur.indices.push(i);
   });
+
   return (
     <span className="karaoke-text">
-      {wordGroups.map((g, wi) => (
-        <React.Fragment key={wi}>
-          {wi > 0 && ' '}
-          <span className="karaoke-word">
-            {g.syls.map(s => (
-              <span
-                key={s.idx}
-                className={`karaoke-syl${isSpeaking ? (s.idx === activeSylIndex ? ' karaoke-active' : ' karaoke-dim') : ''}`}
-              >
-                {s.syl}
-              </span>
-            ))}
-          </span>
-        </React.Fragment>
-      ))}
+      {wordGroups.map((g, wi) => {
+        const isActive = isSpeaking && g.indices.includes(activeSylIndex);
+        const isDim    = isSpeaking && !isActive;
+        return (
+          <React.Fragment key={wi}>
+            {wi > 0 && ' '}
+            <span
+              className={`karaoke-word${isActive ? ' karaoke-active' : ''}${isDim ? ' karaoke-dim' : ''}`}
+            >
+              {g.word}
+            </span>
+          </React.Fragment>
+        );
+      })}
     </span>
   );
 }
