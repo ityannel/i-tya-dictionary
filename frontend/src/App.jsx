@@ -199,10 +199,11 @@ function buildSyllableMap(text) {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const syllables = [];
   words.forEach((w) => {
-    const syls = parseItyaSyllables(w);
+    const clean = w.replace(/[^a-zA-Z]/g, ''); // 記号除去（音節解析用）
+    const syls = parseItyaSyllables(clean);
     syls.forEach(syl => {
       const kana = ROMA_TO_KANA[syl] || syl;
-      syllables.push({ word: w, syl, kana });
+      syllables.push({ word: w, syl, kana }); // word は元のまま保持
     });
   });
   return syllables;
@@ -263,14 +264,20 @@ function speakItya(text, onSyllable, onEnd) {
 
     const rate = 0.85;
     const words = text.trim().split(/\s+/).filter(Boolean);
-    const kanaText = words.map(w => ityaToKana(w)).join('\u3000');
+
+    // 記号を除去してカナ変換（大文字は維持したまま音節解析）
+    const isQuestion = /\?/.test(text);
+    const kanaText = words.map(w => {
+      const clean = w.replace(/[^a-zA-Z]/g, '');
+      return ityaToKana(clean);
+    }).join('\u3000');
     if (!kanaText.trim()) return;
 
     const syllables = buildSyllableMap(text);
 
     const u = new SpeechSynthesisUtterance(kanaText);
     u.lang = 'ja-JP';
-    u.pitch = 1.3;
+    u.pitch = isQuestion ? 1.6 : 1.3;  // ?文はピッチ上げ
     u.rate = rate;
     u.volume = 1.0;
     if (jaVoice) u.voice = jaVoice;
