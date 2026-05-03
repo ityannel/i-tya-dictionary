@@ -212,13 +212,26 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const safeTransition = (callback) => {
-    if (document.startViewTransition) {
-      document.startViewTransition(() => { callback(); });
-    } else {
-      callback();
-    }
-  };
+  const activeTransitionRef = useRef(null);
+
+const safeTransition = (callback) => {
+  if (!document.startViewTransition) {
+    callback();
+    return;
+  }
+  // If a transition is already running, finish it and just run callback directly
+  if (activeTransitionRef.current) {
+    callback();
+    return;
+  }
+  const t = document.startViewTransition(() => {
+    callback();
+  });
+  activeTransitionRef.current = t;
+  t.finished.finally(() => {
+    activeTransitionRef.current = null;
+  });
+};
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -567,7 +580,7 @@ export default function App() {
       // 日本語単語 → 検索
       setIsTranslateMode(false); setIsReverseMode(false); setIsReverseTranslateMode(false);
       setTranslationResult(null);
-      safeTransition(() => { executeSearch(query); });
+      executeSearch(query);
     }
   };
 
