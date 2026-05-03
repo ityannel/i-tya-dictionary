@@ -385,23 +385,21 @@ const safeTransition = (callback) => {
       setIsTranslateMode(false); setIsReverseMode(false); setIsReverseTranslateMode(false);
       setIsSearching(false); setQuery(''); setError(null); setErrorMessage(''); setMode('auto');
     };
-    if (!document.startViewTransition) {
-      doReset();
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (targetId) {
+    const scrollToWord = () => {
+      if (targetId) {
+        setTimeout(() => {
           const el = document.querySelector(`[data-word-id="${targetId}"]`);
           if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-        }
-      }));
+        }, 80);
+      }
+    };
+    if (!document.startViewTransition) {
+      doReset();
+      scrollToWord();
       return;
     }
     safeTransition(doReset);
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (targetId) {
-        const el = document.querySelector(`[data-word-id="${targetId}"]`);
-        if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-      }
-    }));
+    scrollToWord();
   };
 
   const executeSearch = async (searchQuery) => {
@@ -444,15 +442,6 @@ const safeTransition = (callback) => {
         parsedRoot = "複合概念"; displayWord = data.combination || "???";
       } else if (data.status === 'new' || data.status === 'existing') {
         if (data.root) { parsedRoot = data.root; displayWord = data.root + suffix; }
-      }
-      // AIが既存判定でdataもrootもない場合（root_word.2 直接返し）
-      if (displayWord === "???" && data['root_word.2']) {
-        const r = data['root_word.2'];
-        const pos = data['part_of_speech_word.2'] || 'noun';
-        const s = pos === 'verb' ? 'i' : pos === 'extender' ? 'u' : 'a';
-        parsedRoot = r; displayWord = r + s; posKey = pos;
-        if (pos === 'verb') suffix = 'i';
-        else if (pos === 'extender') suffix = 'u';
       }
 
       const finishSearching = () => {
@@ -627,7 +616,7 @@ const safeTransition = (callback) => {
       setIsSearching(false); setError(null);
     };
 
-    safeTransition(safeDetail);
+    safeTransition(showDetail);
   };
 
   const triggerCelebration = (type) => {
