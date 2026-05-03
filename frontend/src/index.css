@@ -1309,3 +1309,28 @@ body {
 .word-display-but-japanese{
   font-weight: 700;
 }
+/* ─── 発音ボタン ─── */
+.pronounce-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(112, 255, 112, 0.08);
+  border: 1px solid rgba(112, 255, 112, 0.3);
+  color: rgba(112, 255, 112, 0.75);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  margin-bottom: 12px;
+  letter-spacing: 0.03em;
+}
+.pronounce-btn:hover {
+  background: rgba(112, 255, 112, 0.16);
+  border-color: rgba(112, 255, 112, 0.6);
+  color: rgba(112, 255, 112, 1);
+}
+.pronounce-btn:active {
+  transform: scale(0.95);
+}

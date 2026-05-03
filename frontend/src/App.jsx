@@ -1,10 +1,48 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ArrowUp, Link, Check, Settings, Languages, ShieldCheck } from 'lucide-react';
+import { Search, X, ArrowUp, Link, Check, Settings, Languages, ShieldCheck, Volume2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
 import DictionaryList from './DictionaryList';
 import anoSvg from './ano.svg';
+
+// ─── i-tya語発音ユーティリティ ───
+// 音節: (C)(G)V。子音h,k,l,m,n,p,s,t / 半母音w,y / 母音a,i,u
+// Web Speech API で英語発音に近いローマ字読みにマッピング
+function speakItya(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  // i-tya音素 → 英語発音向け変換
+  const phonetic = text
+    .toLowerCase()
+    .replace(/ny/g, 'ɲ')   // ny → 軟口蓋
+    .replace(/sy/g, 'sh')  // sy → sh
+    .replace(/ty/g, 'ch')  // ty → ch
+    .replace(/ky/g, 'ky')
+    .replace(/wy/g, 'wi')
+    .replace(/wu/g, 'woo')
+    .replace(/wi/g, 'wee')
+    .replace(/wa/g, 'wah')
+    .replace(/ya/g, 'yah')
+    .replace(/yi/g, 'yee')
+    .replace(/yu/g, 'yoo')
+    .replace(/hu/g, 'hoo')
+    .replace(/ha/g, 'hah')
+    .replace(/hi/g, 'hee')
+    .replace(/lu/g, 'loo')
+    .replace(/la/g, 'lah')
+    .replace(/li/g, 'lee')
+    .replace(/([^aeiou])a/g, '$1ah')
+    .replace(/([^aeiou])i/g, '$1ee')
+    .replace(/([^aeiou])u/g, '$1oo')
+    .replace(/^a/, 'ah').replace(/^i/, 'ee').replace(/^u/, 'oo')
+    .replace(/ɲ/g, 'ny');
+  const utter = new SpeechSynthesisUtterance(phonetic);
+  utter.lang = 'en-US';
+  utter.rate = 0.85;
+  utter.pitch = 1.1;
+  window.speechSynthesis.speak(utter);
+}
 
 // ─── 管理者ログインモーダル ───
 function AdminLoginModal({ onClose, onSuccess }) {
@@ -385,14 +423,25 @@ const safeTransition = (callback) => {
       setIsTranslateMode(false); setIsReverseMode(false); setIsReverseTranslateMode(false);
       setIsSearching(false); setQuery(''); setError(null); setErrorMessage(''); setMode('auto');
     };
+
     const scrollToWord = () => {
-      if (targetId) {
-        setTimeout(() => {
-          const el = document.querySelector(`[data-word-id="${targetId}"]`);
-          if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' });
-        }, 80);
+      if (!targetId) return;
+      // DOMに要素が現れるまで待ってからスクロール
+      const tryScroll = () => {
+        const el = document.querySelector(`[data-word-id="${targetId}"]`);
+        if (el) { el.scrollIntoView({ behavior: 'instant', block: 'center' }); return true; }
+        return false;
+      };
+      if (!tryScroll()) {
+        const observer = new MutationObserver(() => {
+          if (tryScroll()) observer.disconnect();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        // 2秒後に諦める
+        setTimeout(() => observer.disconnect(), 2000);
       }
     };
+
     if (!document.startViewTransition) {
       doReset();
       scrollToWord();
@@ -778,6 +827,14 @@ const safeTransition = (callback) => {
                     <h2 className="word-display">
                       {result.wordData && result.status !== 'complexed' ? result.wordData[activePos] : result.displayWord}
                     </h2>
+                    <button
+                      className="pronounce-btn"
+                      onClick={() => speakItya(result.wordData && result.status !== 'complexed' ? (result.wordData[activePos] || result.displayWord) : result.displayWord)}
+                      title="発音を聞く"
+                    >
+                      <Volume2 size={16} strokeWidth={2} />
+                      発音
+                    </button>
 
                     <div className="reason-text">
                       {result.status === 'complexed' || !result.wordData
@@ -845,6 +902,14 @@ const safeTransition = (callback) => {
                 <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                   {translationResult.translation}
                 </h2>
+                <button
+                  className="pronounce-btn"
+                  onClick={() => speakItya(translationResult.translation)}
+                  title="発音を聞く"
+                >
+                  <Volume2 size={16} strokeWidth={2} />
+                  発音
+                </button>
                 <div className="reason-text">
                   {translationResult.breakdown?.map((item, i) => (
                     <div key={i} style={{ marginBottom: '8px' }}>
@@ -886,6 +951,14 @@ const safeTransition = (callback) => {
                     <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                       {reverseResult.meaning}
                     </h2>
+                    <button
+                      className="pronounce-btn"
+                      onClick={() => speakItya(query)}
+                      title="発音を聞く"
+                    >
+                      <Volume2 size={16} strokeWidth={2} />
+                      発音
+                    </button>
                     <div className="reason-text">
                       {reverseResult.pos && (
                         <div style={{ marginBottom: '8px', opacity: 0.7 }}>
@@ -933,6 +1006,14 @@ const safeTransition = (callback) => {
                 <h2 className="word-display word-display-but-japanese" style={{ fontSize: '2.2rem', lineHeight: '1.4' }}>
                   {reverseTranslationResult.translation}
                 </h2>
+                <button
+                  className="pronounce-btn"
+                  onClick={() => speakItya(query)}
+                  title="i-tya原文の発音を聞く"
+                >
+                  <Volume2 size={16} strokeWidth={2} />
+                  発音
+                </button>
                 <div className="reason-text">
                   {reverseTranslationResult.breakdown?.map((item, i) => (
                     <div key={i} style={{ marginBottom: '8px' }}>

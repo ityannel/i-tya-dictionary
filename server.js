@@ -413,10 +413,9 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 既存リストを必ず確認し、類似概念があればそれを使え。
 
 【⚠️翻訳文の絶対ルール】
-"translation"フィールドに出力するi-tya文は、必ず全ての単語を完成形（語尾母音あり）にすること。
-語幹（root）のみで終わっている単語は絶対に使用禁止。
-例: 「halay-」「halay」は不正。「halaya」（名詞）「halayi」（動詞）「halayu」（拡張詞）のいずれかに必ずすること。
-breakdownの"itya"フィールドも同様に完成形のみ使用すること。
+"translation"フィールドおよびbreakdownの"itya"フィールドは、必ず全ての単語を完成形（語尾母音あり）で出力すること。
+語幹（root）のみで終わっている単語は絶対に禁止。
+例: 「halay-」「halay」は不正。「halaya」（名詞）「halayi」（動詞）「halayu」（拡張詞）のいずれかにすること。
 
 【出力フォーマット】
 {
@@ -484,7 +483,6 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
       const result = await model.generateContent(prompt);
       const rawText = result.response.text().replace(/```json|```/g, '').trim();
       console.log(`[AI] Response received (${rawText.length} chars)`);
-      // JSON文字列値内のリテラル制御文字（改行・タブ等）をエスケープしてからパース
       const sanitized = rawText.replace(
         /"((?:[^"\\]|\\.)*)"/g,
         (match, inner) => '"' + inner
