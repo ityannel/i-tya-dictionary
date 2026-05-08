@@ -1178,8 +1178,12 @@ const safeTransition = (callback) => {
                           : result.concept}
                         {result.status === 'new' && <span className="badge-new">新規</span>}
                         {(result.status === 'complexed' || result.status === 'semi_complexed') && <span className="badge-compound">複合概念</span>}
+                        {(result.level === 1 || result.wordData?.level === 1) && (
+                          <span className="badge-level1">レベル1</span>
+                        )}
                       </div>
-                      {result.status !== 'complexed' && result.wordData && (
+                      
+                      {result.status !== 'complexed' && result.wordData && !(result.level === 1 || result.wordData?.level === 1) && (
                         <select
                           className="pos-select"
                           value={activePos}
@@ -1200,6 +1204,16 @@ const safeTransition = (callback) => {
                         </select>
                       )}
                     </div>
+
+                    {/* ▼ 追加：レベル1の場合は、タイトルの上に「語幹（Root）」を表示する */}
+                    {(result.level === 1 || result.wordData?.level === 1) && (
+                      <div className="root-info" style={{ marginBottom: '4px', fontSize: '0.9rem', color: 'rgba(112, 255, 112, 0.7)' }}>
+                        <span style={{ marginRight: '6px' }}>Root:</span>
+                        <span style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 'bold', letterSpacing: '1px' }}>
+                          -{result.root || result.wordData?.root || "(empty)"}
+                        </span>
+                      </div>
+                    )}
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                       <h2 className="word-display" style={{ margin: 0 }}>

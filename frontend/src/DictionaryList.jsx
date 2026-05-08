@@ -75,21 +75,15 @@ export default function DictionaryList({ onWordClick, onTotalLoaded, isAdmin, de
             <div
               ref={isLast ? lastWordElementRef : null}
               key={entry.id}
-              data-word-id={entry.id}
-              className={`word-card${deleteMode ? ' delete-mode' : ''}${isSelected ? ' selected' : ''}`}
+              className={`word-card ${deleteMode ? ' delete-mode' : ''} ${isSelected ? ' selected' : ''}`}
               onClick={() => onWordClick(entry)}
             >
-              {/* 語幹（複合語はフレーズそのまま） */}
-              <span className="word-itya">
-                {entry.root ? `${entry.root}-` : entry.word}
-              </span>
-              {/* 日本語の意味 */}
-              <span className="word-ja">{entry.meaning}</span>
-              {deleteMode && (
-                <span className="word-card-select-indicator">
-                  {isSelected ? '✓' : '○'}
+              <div className="word-card-top">
+                <span className="word-itya">
+                  {entry.level === 1 ? `${entry.root}-` : entry.word}
                 </span>
-              )}
+              </div>
+              <span className="word-ja">{entry.meaning}</span>
             </div>
           );
         })}
