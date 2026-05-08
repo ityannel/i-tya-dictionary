@@ -660,13 +660,14 @@ app.post('/api/generate', async (req, res) => {
 
       if (aiRes.status === 'new') {
         validateRoot(aiRes.root);
+        const syllableCount = (aiRes.root.match(/[aiu]/g) || []).length + 1;
         const newDoc = db.collection('itya_words').doc();
         const wordData = {
           concept_ja: concept,
           meaning_noun: aiRes.meaning_noun || '', meaning_verb: aiRes.meaning_verb || '', meaning_extender: aiRes.meaning_extender || '',
           word_noun: aiRes.root + 'a', word_verb: aiRes.root + 'i', word_extender: aiRes.root + 'u',
           reason: aiRes.reason, reason_noun: aiRes.reason_noun || '', reason_verb: aiRes.reason_verb || '', reason_extender: aiRes.reason_extender || '',
-          level: 2, created_at: admin.firestore.FieldValue.serverTimestamp()
+          level: sllableCount, created_at: admin.firestore.FieldValue.serverTimestamp()
         };
         batch.set(newDoc, wordData);
         addWordToCache(`tmp_${Date.now()}`, wordData);
