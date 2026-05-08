@@ -1033,10 +1033,10 @@ const safeTransition = (callback) => {
       },
       // 絵文字パーティ
       emoji: () => {
-        const emojis = ['🎉','✨','🌟','💫','🎊'];
+        const emojis = ['😇','😍','🤣','😊','🤩'];
         emojis.forEach((e, i) => {
           setTimeout(() => {
-            confetti({ shapes: [confetti.shapeFromText({ text: e, scalar: 2 })], particleCount: grand ? 20 : 10, spread: 100, origin: { x: 0.2 + i * 0.15, y: 0.5 }, scalar: 1.5, gravity: 0.5, ticks: 60 });
+            confetti({ shapes: [confetti.shapeFromText({ text: e, scalar: 6 })], particleCount: grand ? 20 : 10, spread: 100, origin: { x: 0.2 + i * 0.15, y: 0.5 }, scalar: 1.5, gravity: 0.5, ticks: 60 });
           }, i * 80);
         });
       },
@@ -1207,16 +1207,6 @@ const safeTransition = (callback) => {
                         </select>
                       )}
                     </div>
-
-                    {/* ▼ 追加：レベル1の場合は、タイトルの上に「語幹（Root）」を表示する */}
-                    {(result.level === 1 || result.wordData?.level === 1) && (
-                      <div className="root-info" style={{ marginBottom: '4px', fontSize: '0.9rem', color: 'rgba(112, 255, 112, 0.7)' }}>
-                        <span style={{ marginRight: '6px' }}>Root:</span>
-                        <span style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 'bold', letterSpacing: '1px' }}>
-                          -{result.root || result.wordData?.root || "(empty)"}
-                        </span>
-                      </div>
-                    )}
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                       <h2 className="word-display" style={{ margin: 0 }}>
