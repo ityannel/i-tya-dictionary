@@ -785,7 +785,7 @@ const safeTransition = (callback) => {
           triggerCelebration(true);  // 盛大
           SE_NEW_WORD();
         } else {
-          triggerCelebration(false); // 通常エフェクト（毎回）
+          effects.emoji(); // 通常エフェクト（毎回）
         }
         SE_RESULT();
         setResult({
@@ -797,6 +797,7 @@ const safeTransition = (callback) => {
           reason_verb: data.reason_verb || data.reason || "解説はまだ準備されていません！",
           reason_extender: data.reason_extender || data.reason || "解説はまだ準備されていません！",
           meaning_noun: data.meaning_noun, meaning_verb: data.meaning_verb, meaning_extender: data.meaning_extender,
+          level: data.level || data.data?.level,
           wordData: data.data || (data.root ? { noun: data.root + 'a', verb: data.root + 'i', extender: data.root + 'u' } : null),
           isNew: finalStatus === 'new' || data.is_new === true,
           id: data.id
@@ -921,7 +922,6 @@ const safeTransition = (callback) => {
   };
 
   const handleDictionaryClick = (wordData) => {
-    // 削除モード中は詳細画面に飛ばず選択トグル
     if (deleteMode) {
       toggleSelectId(wordData.id, wordData.word);
       return;
@@ -948,10 +948,12 @@ const safeTransition = (callback) => {
         meaning_noun: wordData.fullData?.meaning_noun,
         meaning_verb: wordData.fullData?.meaning_verb,
         meaning_extender: wordData.fullData?.meaning_extender,
+        level: wordData.fullData?.level,
         wordData: wordData.type !== 'complex' ? {
           noun: wordData.fullData?.word_noun,
           verb: wordData.fullData?.word_verb,
-          extender: wordData.fullData?.word_extender
+          extender: wordData.fullData?.word_extender,
+          level: wordData.fullData?.level
         } : null,
         id: wordData.id
       });
