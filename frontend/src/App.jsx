@@ -785,7 +785,7 @@ const safeTransition = (callback) => {
           triggerCelebration(true);  // 盛大
           SE_NEW_WORD();
         } else {
-          effects.emoji(); // 通常エフェクト（毎回）
+          triggerCelebration(false); // 通常エフェクト（毎回）
         }
         SE_RESULT();
         setResult({
@@ -1057,13 +1057,14 @@ const safeTransition = (callback) => {
       }, 4200);
     } else {
       // 通常モード: ランダムに1〜2種類
-      const keys = Object.keys(effects);
-      const pick = keys[Math.floor(Math.random() * keys.length)];
-      effects[pick]();
-      if (Math.random() < 0.4) {
-        const pick2 = keys[Math.floor(Math.random() * keys.length)];
-        setTimeout(() => effects[pick2](), 500);
-      }
+      // const keys = Object.keys(effects);
+      // const pick = keys[Math.floor(Math.random() * keys.length)];
+      // effects[pick]();
+      // if (Math.random() < 0.4) {
+      //   const pick2 = keys[Math.floor(Math.random() * keys.length)];
+      //   setTimeout(() => effects[pick2](), 500);
+      // }
+      effects.emoji();
     }
   };
 
