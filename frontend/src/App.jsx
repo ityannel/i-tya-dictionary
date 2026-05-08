@@ -1005,25 +1005,45 @@ const safeTransition = (callback) => {
       },
       // ハート
       hearts: () => {
-        const heartShape = confetti.shapeFromText({ text: '❤', scalar: 2 });
-        confetti({ shapes: [heartShape], particleCount: grand ? 60 : 25, spread: 120, origin: { y: 0.5 }, scalar: 1.5, gravity: 0.5, ticks: grand ? 80 : 50 });
+        const heartShape = confetti.shapeFromText({ text: '❤', scalar: 3 });
+        confetti({ 
+          shapes: [heartShape], 
+          particleCount: grand ? 60 : 25, 
+          spread: 300, 
+          origin: { y: 0.5 }, 
+          scalar: 3,
+          gravity: 0.2,
+          startVelocity: 25,
+          ticks: 150
+        });
         if (grand) setTimeout(() => {
-          confetti({ shapes: [heartShape], particleCount: 40, spread: 90, origin: { x: 0.3, y: 0.6 }, scalar: 1.2, gravity: 0.6, ticks: 70 });
-          confetti({ shapes: [heartShape], particleCount: 40, spread: 90, origin: { x: 0.7, y: 0.6 }, scalar: 1.2, gravity: 0.6, ticks: 70 });
-        }, 300);
+          confetti({ shapes: [heartShape], particleCount: 40, spread: 90, origin: { x: 0.3, y: 0.6 }, scalar: 2.5, gravity: 0.2, startVelocity: 20, ticks: 150 });
+          confetti({ shapes: [heartShape], particleCount: 40, spread: 90, origin: { x: 0.7, y: 0.6 }, scalar: 2.5, gravity: 0.2, startVelocity: 20, ticks: 150 });
+        }, 1000);
       },
-      // 雪（ゆっくり落下）
+      // 雪
       snow: () => {
         let i = 0;
         const max = grand ? 60 : 25;
         (function frame() {
-          confetti({ particleCount: 2, angle: 90, spread: 120, origin: { x: Math.random(), y: 0 }, colors: ['#ffffff','#aaddff','#ddeeff'], gravity: 0.3, ticks: 200, scalar: 1.2, shapes: ['circle'] });
+          confetti({ 
+            particleCount: 2, 
+            angle: 270,
+            spread: 200, 
+            origin: { x: Math.random(), y: -0.1 },
+            colors: ['#ffffff','#aaddff','#ddeeff'], 
+            gravity: 0.2,
+            startVelocity: 5,
+            ticks: 300,
+            scalar: 1.5, 
+            shapes: ['circle'] 
+          });
           if (++i < max) setTimeout(frame, 80);
         }());
       },
       // 三角形・四角形ミックス
       shapes: () => {
-        confetti({ particleCount: grand ? 140 : 60, spread: 100, origin: { y: 0.5 }, shapes: ['square','circle'], colors: ['#70ff70','#ff70c0','#ffdd00','#70ffff','#ffffff'], scalar: 1.2 });
+        confetti({ particleCount: grand ? 140 : 60, spread: 100, origin: { y: 0.5 }, shapes: ['square','circle'], colors: ['#70ff70','#ff70c0','#ffdd00','#70ffff','#ffffff'], scalar: 4 });
       },
       // キラキラ（中央爆発）
       sparkle: () => {
@@ -1036,7 +1056,7 @@ const safeTransition = (callback) => {
         const emojis = ['😇','😍','🤣','😊','🤩'];
         emojis.forEach((e, i) => {
           setTimeout(() => {
-            confetti({ shapes: [confetti.shapeFromText({ text: e, scalar: 6 })], particleCount: grand ? 20 : 10, spread: 100, origin: { x: 0.2 + i * 0.15, y: 0.5 }, scalar: 1.5, gravity: 0.5, ticks: 60 });
+            confetti({ shapes: [confetti.shapeFromText({ text: e, scalar: 6 })], particleCount: grand ? 20 : 10, spread: 100, origin: { x: 0.2 + i * 0.15, y: 0.5 }, scalar: 3, gravity: 0.5, ticks: 60 });
           }, i * 80);
         });
       },
@@ -1057,14 +1077,13 @@ const safeTransition = (callback) => {
       }, 4200);
     } else {
       // 通常モード: ランダムに1〜2種類
-      // const keys = Object.keys(effects);
-      // const pick = keys[Math.floor(Math.random() * keys.length)];
-      // effects[pick]();
-      // if (Math.random() < 0.4) {
-      //   const pick2 = keys[Math.floor(Math.random() * keys.length)];
-      //   setTimeout(() => effects[pick2](), 500);
-      // }
-      effects.emoji();
+      const keys = Object.keys(effects);
+      const pick = keys[Math.floor(Math.random() * keys.length)];
+      effects[pick]();
+      if (Math.random() < 0.4) {
+        const pick2 = keys[Math.floor(Math.random() * keys.length)];
+        setTimeout(() => effects[pick2](), 500);
+      }
     }
   };
 
@@ -1074,7 +1093,6 @@ const safeTransition = (callback) => {
         <AdminLoginModal onClose={() => setShowAdminModal(false)} onSuccess={handleAdminSuccess} />
       )}
 
-      {/* 管理者バッジ（アイコンのみ） */}
       {isAdmin && (
         <button
           className="admin-badge-btn"
