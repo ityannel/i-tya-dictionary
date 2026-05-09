@@ -6,6 +6,41 @@ import { faXTwitter } from '@fortawesome/free-brands-svg-icons';
 import DictionaryList from './DictionaryList';
 import anoSvg from './ano.svg';
 
+// ─── ランダムカラーテーマ（1/8の確率） ───
+const THEMES = [
+  // 0: オリジナル（パープル × グリーン）
+  { bg: 'rgba(74, 28, 83, 1)',   fg: 'rgba(112, 255, 112, 1)', fgLight: 'rgba(202, 255, 202, 1)', fgInv: 'rgba(74, 28, 83, 1)',   skelA: '#3f205c', skelB: '#5d2568' },
+  // 1: 真っ赤 × 真っ白
+  { bg: 'rgba(180, 0, 0, 1)',    fg: 'rgba(255, 255, 255, 1)', fgLight: 'rgba(255, 220, 220, 1)', fgInv: 'rgba(180, 0, 0, 1)',    skelA: '#8b0000', skelB: '#b00000' },
+  // 2: ディープネイビー × ゴールド
+  { bg: 'rgba(10, 15, 60, 1)',   fg: 'rgba(255, 210, 60, 1)',  fgLight: 'rgba(255, 240, 160, 1)', fgInv: 'rgba(10, 15, 60, 1)',   skelA: '#0a0f3c', skelB: '#1a2060' },
+  // 3: 漆黒 × シアン
+  { bg: 'rgba(5, 5, 5, 1)',      fg: 'rgba(0, 230, 255, 1)',   fgLight: 'rgba(160, 245, 255, 1)', fgInv: 'rgba(5, 5, 5, 1)',      skelA: '#0a1a1a', skelB: '#0d2828' },
+  // 4: 純白 × マゼンタ
+  { bg: 'rgba(248, 248, 248, 1)',fg: 'rgba(220, 0, 180, 1)',   fgLight: 'rgba(100, 0, 80, 1)',    fgInv: 'rgba(248, 248, 248, 1)',skelA: '#e0e0e0', skelB: '#cccccc' },
+  // 5: ダークグリーン × オレンジ
+  { bg: 'rgba(10, 50, 20, 1)',   fg: 'rgba(255, 140, 0, 1)',   fgLight: 'rgba(255, 200, 120, 1)', fgInv: 'rgba(10, 50, 20, 1)',   skelA: '#0a3214', skelB: '#0f4020' },
+  // 6: ダークブルー × コーラルレッド
+  { bg: 'rgba(15, 30, 80, 1)',   fg: 'rgba(255, 100, 90, 1)',  fgLight: 'rgba(255, 180, 175, 1)', fgInv: 'rgba(15, 30, 80, 1)',   skelA: '#0f1e50', skelB: '#142570' },
+  // 7: チャコール × ライムイエロー
+  { bg: 'rgb(255, 0, 0)',   fg: 'rgb(255, 255, 255)',   fgLight: 'rgb(255, 255, 255)', fgInv: 'rgb(255, 255, 255)',   skelA: '#a1a1a1', skelB: '#afafaf' },
+];
+
+function applyTheme(theme) {
+  const r = document.documentElement.style;
+  r.setProperty('--bg',       theme.bg);
+  r.setProperty('--fg',       theme.fg);
+  r.setProperty('--fg-light', theme.fgLight);
+  r.setProperty('--fg-inv',   theme.fgInv);
+  r.setProperty('--skel-a',   theme.skelA);
+  r.setProperty('--skel-b',   theme.skelB);
+}
+
+// ページロード時に1/8の確率でランダムテーマを適用
+const themeRoll = Math.random();
+const themeIndex = themeRoll < (1 / 6) ? Math.floor(Math.random() * (THEMES.length - 1)) + 1 : 0;
+applyTheme(THEMES[themeIndex]);
+
 // ─── SE（効果音）ユーティリティ ───
 const getAudioContext = (() => {
   let ctx = null;
