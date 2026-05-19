@@ -1389,7 +1389,7 @@ const safeTransition = (callback) => {
             {reverseResult && !isSearching && !error && (
               <div className="inner-result fade-in-up">
                 <div className="concept-text">
-                  {query}
+                  {reverseResult.found ? reverseResult.meaning : query}
                   <span className="badge-compound">逆引き</span>
                 </div>
                 {reverseResult.found ? (
@@ -1446,11 +1446,11 @@ const safeTransition = (callback) => {
             {reverseTranslationResult && !isSearching && !error && (
               <div className="inner-result fade-in-up">
                 <div className="concept-text">
-                  {query}
+                  {reverseTranslationResult.translation}
                   <span className="badge-compound">翻訳</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                  <h2 className="word-display word-display-but-japanese" style={{ fontSize: '2.2rem', lineHeight: '1.4', margin: 0 }}>
+                  <h2 className="word-display" style={{ fontSize: '2.2rem', lineHeight: '1.4', margin: 0 }}>
                     <KaraokeDisplay text={query} activeSylIndex={activeSyl} syllables={sylMap} />
                   </h2>
                   <button type="button" className="index-btn pronounce-icon-btn"
