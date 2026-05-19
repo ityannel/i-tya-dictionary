@@ -101,9 +101,13 @@ async function ensureTriviaCache() {
 //  Cache utilities
 // ─────────────────────────────────────────────
 function findInCacheByConceptJa(concept) {
-  const word = memCache.words.find(w => w.concept_ja === concept);
+  const word = memCache.words.find(w => 
+    w.concept_ja === concept || (Array.isArray(w.keywords) && w.keywords.includes(concept))
+  );
   if (word) return { type: 'word', data: word };
-  const comp = memCache.complex.find(c => c.concept_ja === concept);
+  const comp = memCache.complex.find(c => 
+    c.concept_ja === concept || (Array.isArray(c.keywords) && c.keywords.includes(concept))
+  );
   if (comp) return { type: 'complex', data: comp };
   return null;
 }
@@ -117,7 +121,11 @@ function findInCacheByRoot(root) {
 }
 
 function addWordToCache(id, data) {
-  const exists = memCache.words.find(w => w.id === id || w.concept_ja === data.concept_ja);
+  const exists = memCache.words.find(w => 
+    w.id === id || 
+    w.concept_ja === data.concept_ja || 
+    (Array.isArray(w.keywords) && data.keywords && data.keywords.some(k => w.keywords.includes(k)))
+  );
   if (!exists) {
     memCache.words.push({ id, ...data });
     saveCacheFile();
@@ -125,7 +133,11 @@ function addWordToCache(id, data) {
 }
 
 function addComplexToCache(id, data) {
-  const exists = memCache.complex.find(c => c.id === id || c.concept_ja === data.concept_ja);
+  const exists = memCache.complex.find(c => 
+    c.id === id || 
+    c.concept_ja === data.concept_ja || 
+    (Array.isArray(c.keywords) && data.keywords && data.keywords.some(k => c.keywords.includes(k)))
+  );
   if (!exists) {
     memCache.complex.push({ id, ...data });
     saveCacheFile();
@@ -146,7 +158,8 @@ function buildWordListStr() {
       w.word_extender ? `${w.word_extender}(拡)` : ''
     ].filter(Boolean).join('/');
     if (!forms) return '';
-    return `${w.concept_ja || w.meaning}: ${forms}`;
+    const kwStr = Array.isArray(w.keywords) && w.keywords.length > 0 ? ` [類義: ${w.keywords.join(', ')}]` : '';
+    return `${w.concept_ja || w.meaning}${kwStr}: ${forms}`;
   }).filter(Boolean).join(', ');
 }
 
@@ -244,7 +257,7 @@ const ityaRules = `
 【絶対遵守事項：単語生成と出力】
 1. JSONのみ出力。マークダウンの装飾や挨拶は一切不要。
 2. root(語幹)は、末尾の母音(a,i,u)を**絶対に除外**した骨組みを出力せよ（例: wasa -> was）。
-3. ユーザーの【既存・拒否リスト】を必ず確認せよ。同義・類義・上位下位概念は"existing"とする。
+3. ユーザーの【既存・拒否リスト】を必ず確認せよ。同義・類義・上位下位概念、および[類義: ...]に含まれる語はすべて"existing"とする。
 4. 既存単語の組み合わせで表現可能な場合は"complexed"か"semi_complexed"とし、安易な新語生成(new)は避ける。
 5. "complexed"の要素は既存リストに存在する単語のみ。捏造は絶対禁止。不足があるなら必ず"semi_complexed"にせよ。組み合わせ表現ができる場合"rejected"にはしない。
 6. 固有名詞は音訳＋名詞化(-a)。語頭大文字、i-tya音韻適合必須（例: Nyuyoka）。
@@ -446,8 +459,11 @@ const reverseTranslateRules = `
 
 【最重要ルール】
 1. 渡された辞書に存在しない単語は、絶対に意味を捏造するな。"unknown"としてそのままi-tya語を返せ。
-2. 辞書に存在する単語のみ日本語に訳せ。
-3. 語末の母音（-a=名詞、-i=動詞、-u=拡張詞）で品詞を判定し、自然な日本語に変換せよ。
+2. 辞書に存在する単語・熟語（既存・熟語リスト）を最大限活用し、日本語として自然な文章に訳せ。
+3. [類義: ...] に含まれるキーワード群から、文脈に最も適した日本語を選択せよ。
+4. 語末の母音（-a=名詞、-i=動詞、-u=拡張詞）で品詞を判定し、自然な日本語に変換せよ。
+5. i-tyaは「完全後置修飾」である。直前の単語や句を後ろから説明している構造を正確に捉えよ。
+6. 時制（nu=過去/完了）、否定（hu）、疑問（nyu）を日本語の述語に正しく反映させよ。
 
 【i-tya基本ルール（解読用）】
 品詞: -a=名詞、-i=動詞、-u=拡張詞。
@@ -596,8 +612,16 @@ app.post('/api/generate', async (req, res) => {
     // キャッシュヒット
     const cached = findInCacheByConceptJa(concept);
     if (cached) {
+      const item = cached.data;
+      // 新しいキーワードなら追加
+      if (Array.isArray(item.keywords) && !item.keywords.includes(concept)) {
+        item.keywords.push(concept);
+        const col = cached.type === 'word' ? 'itya_words' : 'itya_complex';
+        db.collection(col).doc(item.id).update({ keywords: item.keywords }).catch(e => console.warn('[DB] Keyword update failed:', e.message));
+      }
+
       if (cached.type === 'word') {
-        const w = cached.data;
+        const w = item;
         console.log(`[/api/generate] Cache hit (word): ${w.word_noun} (ID: ${w.id})`);
         return res.json({
           status: 'existing', id: w.id,
@@ -610,7 +634,7 @@ app.post('/api/generate', async (req, res) => {
         });
       }
       if (cached.type === 'complex') {
-        const c = cached.data;
+        const c = item;
         console.log(`[/api/generate] Cache hit (complex): ${c.combination} (ID: ${c.id})`);
         return res.json({
           status: 'complexed', id: c.id,
@@ -631,11 +655,11 @@ app.post('/api/generate', async (req, res) => {
 
     const checkListStr = buildWordListStr();
     const prompt = `
-概念: 「${concept}」
-既存リスト: ${checkListStr}
+    概念: 「${concept}」
+    既存リスト: ${checkListStr}
 
-上記のリストを必ず確認し、類似・包含される概念がすでに存在しないかを最優先で精査しなさい。
-絶対にルールとJSONフォーマットに従い出力すること。`;
+    上記のリストを必ず確認し、類似・包含される概念がすでに存在しないかを最優先で精査しなさい。
+    絶対にルールとJSONフォーマットに従い出力すること。`;
 
     const generationPromise = (async () => {
       const aiRes = await callAIWithRetry(generateModel, prompt);
@@ -644,6 +668,13 @@ app.post('/api/generate', async (req, res) => {
       if ((aiRes.status === 'existing' || !aiRes.status) && aiRes['root_word.2']) {
         const found = findInCacheByRoot(aiRes['root_word.2']);
         if (found) {
+          // キーワード追加ロジック
+          if (!Array.isArray(found.keywords)) found.keywords = [found.concept_ja].filter(Boolean);
+          if (!found.keywords.includes(concept)) {
+            found.keywords.push(concept);
+            db.collection('itya_words').doc(found.id).update({ keywords: found.keywords }).catch(e => console.warn('[DB] Keyword update failed:', e.message));
+          }
+
           return {
             status: 'existing', id: found.id, meaning: found.concept_ja,
             data: { noun: found.word_noun, verb: found.word_verb, extender: found.word_extender },
@@ -664,24 +695,26 @@ app.post('/api/generate', async (req, res) => {
         const newDoc = db.collection('itya_words').doc();
         const wordData = {
           concept_ja: concept,
+          keywords: [concept],
           meaning_noun: aiRes.meaning_noun || '', meaning_verb: aiRes.meaning_verb || '', meaning_extender: aiRes.meaning_extender || '',
           word_noun: aiRes.root + 'a', word_verb: aiRes.root + 'i', word_extender: aiRes.root + 'u',
           reason: aiRes.reason, reason_noun: aiRes.reason_noun || '', reason_verb: aiRes.reason_verb || '', reason_extender: aiRes.reason_extender || '',
-          level: sllableCount, created_at: admin.firestore.FieldValue.serverTimestamp()
+          level: syllableCount, created_at: admin.firestore.FieldValue.serverTimestamp()
         };
         batch.set(newDoc, wordData);
-        addWordToCache(`tmp_${Date.now()}`, wordData);
+        addWordToCache(newDoc.id, wordData);
 
       } else if (aiRes.status === 'complexed') {
         const newComplex = db.collection('itya_complex').doc();
         const complexData = {
           concept_ja: concept, meaning: concept,
+          keywords: [concept],
           combination: aiRes.combination, complexity_type: aiRes.complexity_type,
           components: aiRes.components, syntax_logic: aiRes.syntax_logic,
           reason: aiRes.reason, created_at: admin.firestore.FieldValue.serverTimestamp()
         };
         batch.set(newComplex, complexData);
-        addComplexToCache(`tmp_${Date.now()}`, complexData);
+        addComplexToCache(newComplex.id, complexData);
 
       } else if (aiRes.status === 'semi_complexed') {
         if (Array.isArray(aiRes.words)) {
@@ -691,24 +724,26 @@ app.post('/api/generate', async (req, res) => {
               const partDoc = db.collection('itya_words').doc();
               const partData = {
                 concept_ja: w.meaning || `(Part of ${concept})`,
+                keywords: [w.meaning || concept].filter(Boolean),
                 meaning: w.meaning || `(Part of ${concept})`,
                 word_noun: w.root + 'a', word_verb: w.root + 'i', word_extender: w.root + 'u',
                 reason: w.reason || 'Generated as a component of a complex word.',
                 level: 2, created_at: admin.firestore.FieldValue.serverTimestamp()
               };
               batch.set(partDoc, partData);
-              addWordToCache(`tmp_${Date.now()}_${w.root}`, partData);
+              addWordToCache(partDoc.id, partData);
             }
           }
         }
         const newComplex = db.collection('itya_complex').doc();
         const semiData = {
           concept_ja: concept, meaning: concept,
+          keywords: [concept],
           combination: aiRes.combination, words: aiRes.words,
           reason: aiRes.reason, created_at: admin.firestore.FieldValue.serverTimestamp()
         };
         batch.set(newComplex, semiData);
-        addComplexToCache(`tmp_${Date.now()}`, semiData);
+        addComplexToCache(newComplex.id, semiData);
       }
 
       if (aiRes.trivia) {
@@ -807,7 +842,7 @@ app.post('/api/translate', async (req, res) => {
   }
 });
 
-// 逆引き（i-tya語 → 日本語）
+// 逆引き（i-tya語 → 日本語）および 日本語検索
 app.post('/api/reverse', async (req, res) => {
   const { word } = req.body;
   if (!word) return res.status(400).json({ error: 'Word is empty.' });
@@ -821,14 +856,14 @@ app.post('/api/reverse', async (req, res) => {
     const posMap = { 'a': 'noun', 'i': 'verb', 'u': 'extender' };
     const pos = posMap[lastChar] || null;
 
-    // 完全一致検索（word_noun / word_verb / word_extender）
+    // 1. 完全一致検索（i-tya語として）
     let found = memCache.words.find(entry =>
       (entry.word_noun || '').toLowerCase() === w ||
       (entry.word_verb || '').toLowerCase() === w ||
       (entry.word_extender || '').toLowerCase() === w
     );
 
-    // 複合語検索
+    // 2. 複合語検索
     if (!found) {
       const complexFound = memCache.complex.find(c =>
         (c.combination || '').toLowerCase().split(/\s+/).includes(w)
@@ -846,6 +881,7 @@ app.post('/api/reverse', async (req, res) => {
       }
     }
 
+    // i-tya語としてヒットした場合
     if (found) {
       return res.json({
         found: true,
@@ -861,7 +897,7 @@ app.post('/api/reverse', async (req, res) => {
       });
     }
 
-    // 語幹で部分一致（例: "was" → "wasa", "wasi", "wasu" を持つ語）
+    // 3. 語幹で部分一致
     const root = /[aiu]$/.test(w) ? w.slice(0, -1) : w;
     const rootFound = memCache.words.find(entry => {
       const base = entry.word_noun || entry.word_verb || entry.word_extender || '';
@@ -883,6 +919,36 @@ app.post('/api/reverse', async (req, res) => {
       });
     }
 
+    // 4. 日本語キーワード検索（追加分）
+    const keywordMatch = findInCacheByConceptJa(word);
+    if (keywordMatch) {
+      const item = keywordMatch.data;
+      if (keywordMatch.type === 'word') {
+        return res.json({
+          found: true,
+          word: item.word_noun,
+          meaning: item.concept_ja,
+          pos: 'noun',
+          forms: {
+            noun: item.word_noun,
+            verb: item.word_verb,
+            extender: item.word_extender
+          },
+          reason: item.reason || item.reason_noun,
+          note: '日本語キーワード一致'
+        });
+      } else {
+        return res.json({
+          found: true,
+          word: item.combination,
+          meaning: item.concept_ja,
+          isComplex: true,
+          reason: item.reason,
+          note: '日本語キーワード一致'
+        });
+      }
+    }
+
     return res.json({ found: false, word: w });
   } catch (error) {
     console.error('[/api/reverse] Error:', error.message);
@@ -897,8 +963,9 @@ app.post('/api/reverse-translate', async (req, res) => {
 
   try {
     await ensureCache();
-    // 辞書を「i-tya語 → 日本語」の対応表として整形
-    const wordList = memCache.words
+    
+    // 単語リストの構築（類義語キーワードも含む）
+    const simpleWords = memCache.words
       .filter(w => w.word_noun || w.word_verb || w.word_extender)
       .map(w => {
         const forms = [
@@ -906,15 +973,29 @@ app.post('/api/reverse-translate', async (req, res) => {
           w.word_verb ? `${w.word_verb}（動詞）` : '',
           w.word_extender ? `${w.word_extender}（拡張詞）` : ''
         ].filter(Boolean).join(' / ');
-        return `${forms} → ${w.concept_ja || w.meaning_noun || w.meaning || ''}`;
-      }).join('\n');
+        const kw = Array.isArray(w.keywords) && w.keywords.length > 0 ? ` [類義: ${w.keywords.join(', ')}]` : '';
+        return `${forms} → ${w.concept_ja || w.meaning_noun || w.meaning || ''}${kw}`;
+      });
 
-    const prompt = `以下はi-tya辞書だ。各行は「i-tya語（品詞） → 日本語の意味」の対応を示す。
+    // 熟語リストの構築
+    const complexWords = memCache.complex
+      .filter(c => c.combination)
+      .map(c => {
+        const kw = Array.isArray(c.keywords) && c.keywords.length > 0 ? ` [類義: ${c.keywords.join(', ')}]` : '';
+        return `${c.combination}（熟語） → ${c.concept_ja || c.meaning || ''}${kw}`;
+      });
+
+    const dictionaryStr = [...simpleWords, ...complexWords].join('\n');
+
+    const prompt = `以下はi-tya辞書（既存リスト・熟語リスト）だ。各行は「i-tya語（品詞） → 日本語の意味 [類義キーワード群]」の対応を示す。
 
 【i-tya辞書】
-${wordList}
+${dictionaryStr}
 
-【重要】この辞書に存在しない単語は意味を捏造せず、translation内では「(単語名)」の形でそのまま残し、breakdownのstatusは"unknown"とせよ。
+【重要】
+1. この辞書に存在しない単語は意味を捏造せず、translation内では「(単語名)」の形でそのまま残し、breakdownのstatusは"unknown"とせよ。
+2. 熟語が辞書にある場合は、個別の単語に分解せず、熟語としての意味を優先せよ。
+3. [類義: ...] にある言葉を参考に、文脈に最もふさわしい訳語を選択せよ。
 
 上記の辞書を参照し、以下のi-tya文章を自然な日本語に翻訳せよ。
 出力は必ずJSONのみ。翻訳文は "translation" フィールドに、語ごとの内訳は "breakdown" 配列に入れよ。
@@ -935,13 +1016,18 @@ app.get('/api/dictionary', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
-    const letter = (req.query.letter || req.query.search || '').toLowerCase();
+    const searchQuery = (req.query.letter || req.query.search || '').toLowerCase();
 
     await ensureCache();
 
     let allEntries = buildDictionaryEntries();
-    if (letter && letter !== 'all') {
-      allEntries = allEntries.filter(e => e.word.toLowerCase().startsWith(letter));
+    if (searchQuery && searchQuery !== 'all') {
+      allEntries = allEntries.filter(e => {
+        const wordMatch = e.word.toLowerCase().startsWith(searchQuery);
+        const meaningMatch = (e.meaning || '').toLowerCase().includes(searchQuery);
+        const keywordMatch = Array.isArray(e.fullData.keywords) && e.fullData.keywords.some(k => k.toLowerCase().includes(searchQuery));
+        return wordMatch || meaningMatch || keywordMatch;
+      });
     }
     allEntries.sort(sortItyaWords);
 
