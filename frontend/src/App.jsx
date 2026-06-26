@@ -1278,23 +1278,44 @@ const safeTransition = (callback) => {
                 <p className="searching-text">
                   <span>{query}</span> {loadingMessages[loadingStep]}
                 </p>
-                {streamingText && (
-                  <div className="streaming-text-box" style={{ whiteSpace: 'pre-wrap', marginBottom: '20px', padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', fontSize: '1.1rem', lineHeight: '1.6' }}>
-                    {streamingText}
-                  </div>
+                
+                {streamingText ? (
+                  mode === 'translate' || isTranslateMode || isReverseTranslateMode ? (
+                    <div className="translation-box fade-in-up" style={{ marginTop: '20px', textAlign: 'left' }}>
+                      <div className="trans-header">
+                        {isReverseTranslateMode ? '日本語 翻訳結果' : 'i-tya語 翻訳結果'} <span style={{fontSize:'0.85em', fontWeight:'normal', opacity:0.7}}>(生成中...)</span>
+                      </div>
+                      <div className="trans-result" style={{ whiteSpace: 'pre-wrap', minHeight: '80px', color: 'var(--text)' }}>
+                        {streamingText}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="inner-result fade-in-up" style={{ marginTop: '20px', textAlign: 'left' }}>
+                      <div className="concept-header">
+                        <div className="concept-text">{query}</div>
+                        <span className="badge-new" style={{ opacity: 0.5, background: 'var(--bg-lighter)' }}>生成中...</span>
+                      </div>
+                      <div className="reason-text" style={{ whiteSpace: 'pre-wrap', minHeight: '100px' }}>
+                        {streamingText}
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    {trivia && (
+                      <div className="trivia-box">
+                        <span className="trivia-text">{trivia}</span>
+                      </div>
+                    )}
+                    <div className="skeleton-line concept-skel"></div>
+                    <div className="skeleton-box word-skel"></div>
+                    <div className="skeleton-line long"></div>
+                    <div className="skeleton-line mid"></div>
+                    <div className="skeleton-line long"></div>
+                    <div className="skeleton-line long"></div>
+                    <div className="skeleton-line mid"></div>
+                  </>
                 )}
-                {trivia && (
-                  <div className="trivia-box">
-                    <span className="trivia-text">{trivia}</span>
-                  </div>
-                )}
-                <div className="skeleton-line concept-skel"></div>
-                <div className="skeleton-box word-skel"></div>
-                <div className="skeleton-line long"></div>
-                <div className="skeleton-line mid"></div>
-                <div className="skeleton-line long"></div>
-                <div className="skeleton-line long"></div>
-                <div className="skeleton-line mid"></div>
               </div>
             )}
 
