@@ -491,9 +491,23 @@ export default function App() {
   const [isReverseMode, setIsReverseMode] = useState(false);
   const [reverseTranslationResult, setReverseTranslationResult] = useState(null);
   const [isReverseTranslateMode, setIsReverseTranslateMode] = useState(false);
-  const [streamingText, setStreamingText] = useState("");
+  const [streamingData, setStreamingData] = useState(null);
 
-  const handleSSEStream = async (res, onText, onDone) => {
+  const parsePartialJson = (jsonStr) => {
+    const result = {};
+    const keys = ['status', 'root', 'meaning_noun', 'meaning_verb', 'meaning_extender', 'reason', 'reason_noun', 'reason_verb', 'reason_extender', 'translation', 'combination'];
+    
+    for (const key of keys) {
+      const regex = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`);
+      const match = jsonStr.match(regex);
+      if (match) {
+        result[key] = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      }
+    }
+    return result;
+  };
+
+  const handleSSEStream = async (res, onData, onDone) => {
     const reader = res.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let accumulatedStream = '';
@@ -505,7 +519,7 @@ export default function App() {
       sseBuffer += decoder.decode(value, { stream: true });
       
       let lines = sseBuffer.split('\n\n');
-      sseBuffer = lines.pop(); // keep incomplete part
+      sseBuffer = lines.pop();
       
       for (const block of lines) {
         const blockLines = block.split('\n');
@@ -517,7 +531,7 @@ export default function App() {
             const payloadStr = line.substring(6);
             if (eventType === 'retry') {
               accumulatedStream = '';
-              onText('生成をやり直しています...');
+              onData({ status: 'retry', reason: '生成をやり直しています...' });
             } else if (eventType === 'done') {
               // stream finished
             } else {
@@ -525,8 +539,8 @@ export default function App() {
                 const payload = JSON.parse(payloadStr);
                 if (payload.text) {
                   accumulatedStream += payload.text;
-                  const textPart = accumulatedStream.split('---')[0];
-                  onText(textPart);
+                  const partial = parsePartialJson(accumulatedStream);
+                  onData(partial);
                 }
                 if (payload.result) {
                   onDone(payload.result);
@@ -819,7 +833,7 @@ const safeTransition = (callback) => {
 
   const executeSearch = async (searchQuery) => {
     safeTransition(() => {
-      setIsSearching(true); setResult(null); setError(null); setTrivia("トリビアを読み込み中..."); setStreamingText("");
+      setIsSearching(true); setResult(null); setError(null); setTrivia("トリビアを読み込み中..."); setStreamingData(null);
       setActiveSyl(-1); setSylMap([]);
     });
     try {
@@ -846,8 +860,8 @@ const safeTransition = (callback) => {
       if (contentType && contentType.includes('application/json')) {
         data = await res.json();
       } else {
-        await handleSSEStream(res, (text) => {
-          safeTransition(() => setStreamingText(text));
+        await handleSSEStream(res, (data) => {
+          safeTransition(() => setStreamingData(data));
         }, (resData) => {
           data = resData;
         });
@@ -856,7 +870,7 @@ const safeTransition = (callback) => {
       if (!data) return; // Stream handled it or error
 
       if (data.status === 'invalid' || data.status === 'invailed') {
-        setError('invalid'); setIsSearching(false); setStreamingText(""); return;
+        setError('invalid'); setIsSearching(false); setStreamingData(null); return;
       }
       if (data.error && (data.error.includes('503') || data.error.includes('high demand') || data.error.includes('混雑'))) {
         setError('overload'); setErrorMessage(data.error); setIsSearching(false); return;
@@ -913,7 +927,7 @@ const safeTransition = (callback) => {
   };
 
   const executeTranslation = async (sentence) => {
-    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setStreamingText(""); });
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setStreamingData(null); });
     try {
       const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
         method: 'POST',
@@ -932,8 +946,8 @@ const safeTransition = (callback) => {
       if (contentType && contentType.includes('application/json')) {
         data = await res.json();
       } else {
-        await handleSSEStream(res, (text) => {
-          safeTransition(() => setStreamingText(text));
+        await handleSSEStream(res, (data) => {
+          safeTransition(() => setStreamingData(data));
         }, (resData) => {
           data = resData;
         });
@@ -941,7 +955,7 @@ const safeTransition = (callback) => {
 
       if (!data) return;
       
-      if (!data.translation) { setError('connection'); setIsSearching(false); setStreamingText(""); return; }
+      if (!data.translation) { setError('connection'); setIsSearching(false); setStreamingData(null); return; }
       const hasNewWord = Array.isArray(data.words) && data.words.some(w => w.is_new || w.status === 'new');
       safeTransition(() => { SE_RESULT(); triggerCelebration(hasNewWord); setTranslationResult(data); setIsSearching(false); });
     } catch (err) {
@@ -951,7 +965,7 @@ const safeTransition = (callback) => {
   };
 
   const executeReverse = async (word) => {
-    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseResult(null); setStreamingText(""); });
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseResult(null); setStreamingData(null); });
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
       const trData = await trRes.json();
@@ -979,7 +993,7 @@ const safeTransition = (callback) => {
   };
 
   const executeReverseTranslation = async (sentence) => {
-    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseTranslationResult(null); setStreamingText(""); });
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseTranslationResult(null); setStreamingData(null); });
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
       const trData = await trRes.json();
@@ -1004,8 +1018,8 @@ const safeTransition = (callback) => {
       if (contentType && contentType.includes('application/json')) {
         data = await res.json();
       } else {
-        await handleSSEStream(res, (text) => {
-          safeTransition(() => setStreamingText(text));
+        await handleSSEStream(res, (data) => {
+          safeTransition(() => setStreamingData(data));
         }, (resData) => {
           data = resData;
         });
@@ -1013,7 +1027,7 @@ const safeTransition = (callback) => {
 
       if (!data) return;
       
-      if (!data.translation) { setError('connection'); setIsSearching(false); setStreamingText(""); return; }
+      if (!data.translation) { setError('connection'); setIsSearching(false); setStreamingData(null); return; }
       safeTransition(() => { SE_RESULT(); triggerCelebration(false); setReverseTranslationResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("逆翻訳通信エラー:", err);
@@ -1279,24 +1293,31 @@ const safeTransition = (callback) => {
                   <span>{query}</span> {loadingMessages[loadingStep]}
                 </p>
                 
-                {streamingText ? (
+                {streamingData ? (
                   mode === 'translate' || isTranslateMode || isReverseTranslateMode ? (
                     <div className="translation-box fade-in-up" style={{ marginTop: '20px', textAlign: 'left' }}>
                       <div className="trans-header">
                         {isReverseTranslateMode ? '日本語 翻訳結果' : 'i-tya語 翻訳結果'} <span style={{fontSize:'0.85em', fontWeight:'normal', opacity:0.7}}>(生成中...)</span>
                       </div>
                       <div className="trans-result" style={{ whiteSpace: 'pre-wrap', minHeight: '80px', color: 'var(--text)' }}>
-                        {streamingText}
+                        {streamingData.translation || streamingData.reason || ''}
                       </div>
                     </div>
                   ) : (
                     <div className="inner-result fade-in-up" style={{ marginTop: '20px', textAlign: 'left' }}>
                       <div className="concept-header">
-                        <div className="concept-text">{query}</div>
+                        <div className="concept-text">{streamingData.meaning_noun || query}</div>
                         <span className="badge-new" style={{ opacity: 0.5, background: 'var(--bg-lighter)' }}>生成中...</span>
                       </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                        <h2 className="word-display" style={{ margin: 0 }}>
+                          {streamingData.status === 'complexed' || streamingData.status === 'semi_complexed'
+                            ? streamingData.combination || "???"
+                            : (streamingData.root ? streamingData.root + "a" : "???")}
+                        </h2>
+                      </div>
                       <div className="reason-text" style={{ whiteSpace: 'pre-wrap', minHeight: '100px' }}>
-                        {streamingText}
+                        {streamingData.reason_noun || streamingData.reason || ''}
                       </div>
                     </div>
                   )

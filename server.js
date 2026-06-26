@@ -255,7 +255,7 @@ const ityaRules = `
 ・Lv3(3音節以上): 開いた語類(専門用語・外来語等)。
 
 【絶対遵守事項：単語生成と出力】
-1. 以下の形式で出力せよ。最初に生成結果（意味・由来・解説など）を人間向けのプレーンテキストで出力し、その後セパレータ「---」を単独行に挟んで、システム向けの構造データをJSONで出力せよ。JSON外でのマークダウン修飾や挨拶は不要。
+1. JSONのみ出力。マークダウンの装飾や挨拶は一切不要。
 2. root(語幹)は、末尾の母音(a,i,u)を**絶対に除外**した骨組みを出力せよ（例: wasa -> was）。
 3. ユーザーの【既存・拒否リスト】を必ず確認せよ。同義・類義・上位下位概念、および[類義: ...]に含まれる語はすべて"existing"とする。
 4. 既存単語の組み合わせで表現可能な場合は"complexed"か"semi_complexed"とし、安易な新語生成(new)は避ける。
@@ -435,10 +435,6 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 既存リストを必ず確認し、類似概念があればそれを使え。
 
 【出力フォーマット】
-以下の形式で出力せよ。最初に翻訳結果（i-tya語文章）をプレーンテキストで出力し、その後セパレータ「---」を単独行に挟んで、構造データをJSONで出力せよ。
-
-（ここに翻訳されたi-tya語の文章をプレーンテキストで出力）
----
 {
   "translation": "完成したi-tya語文章",
   "breakdown": [
@@ -482,10 +478,6 @@ const reverseTranslateRules = `
 【語順】SV型。後置修飾。
 
 【出力フォーマット】
-以下の形式で出力せよ。最初に翻訳結果（日本語訳）をプレーンテキストで出力し、その後セパレータ「---」を単独行に挟んで、構造データをJSONで出力せよ。
-
-（ここに翻訳された日本語訳の文章をプレーンテキストで出力）
----
 {
   "translation": "日本語訳。辞書にない単語は「(tit)」のようにi-tya語をそのまま括弧で残せ。",
   "breakdown": [
@@ -518,9 +510,7 @@ async function callAIWithRetry(model, prompt, res, maxRetries = 3) {
       }
       
       console.log(`[AI] Stream complete (${fullText.length} chars)`);
-      const parts = fullText.split('---');
-      const jsonText = parts.length > 1 ? parts.slice(1).join('---') : fullText;
-      const rawText = jsonText.replace(/```json|```/g, '').trim();
+      const rawText = fullText.replace(/```json|```/g, '').trim();
       
       const sanitized = rawText.replace(
         /"((?:[^"\\]|\\.)*)"/g,
