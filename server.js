@@ -241,7 +241,7 @@ app.use(cors({
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const ityaRules = `
-あなたは人工言語「i-tya」の厳格なコンパイラ・言語学者だ。以下のルールに絶対に従い単語を生成せよ。指定のJSON形式以外は一切出力するな。
+あなたは人工言語「i-tya」の厳格なコンパイラ・言語学者だ。以下のルールに絶対に従い単語を生成せよ。
 
 【i-tya言語の基本ルール】
 ・目的: 迅速な意思疎通。「覚える・読む・聞く・話す・書く」の速度重視。
@@ -255,7 +255,7 @@ const ityaRules = `
 ・Lv3(3音節以上): 開いた語類(専門用語・外来語等)。
 
 【絶対遵守事項：単語生成と出力】
-1. JSONのみ出力。マークダウンの装飾や挨拶は一切不要。
+1. 以下の形式で出力せよ。最初に生成結果（意味・由来・解説など）を人間向けのプレーンテキストで出力し、その後セパレータ「---」を単独行に挟んで、システム向けの構造データをJSONで出力せよ。JSON外でのマークダウン修飾や挨拶は不要。
 2. root(語幹)は、末尾の母音(a,i,u)を**絶対に除外**した骨組みを出力せよ（例: wasa -> was）。
 3. ユーザーの【既存・拒否リスト】を必ず確認せよ。同義・類義・上位下位概念、および[類義: ...]に含まれる語はすべて"existing"とする。
 4. 既存単語の組み合わせで表現可能な場合は"complexed"か"semi_complexed"とし、安易な新語生成(new)は避ける。
@@ -370,7 +370,7 @@ const ityaRules = `
 `;
 
 const translateRules = `
-あなたはi-tya言語の翻訳コンパイラだ。日本語文章をi-tya語に翻訳し、JSONのみ出力せよ。
+あなたはi-tya言語の翻訳コンパイラだ。日本語文章をi-tya語に翻訳せよ。
 
 【絶対禁止】"translation"フィールドおよび"itya"フィールドに語幹（root）をそのまま出力することは絶対に禁止。
 必ず語尾母音（-a/-i/-u）を付けた完成形の単語のみを出力すること。いかなる単語も子音で終わってはならない。
@@ -435,6 +435,10 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 既存リストを必ず確認し、類似概念があればそれを使え。
 
 【出力フォーマット】
+以下の形式で出力せよ。最初に翻訳結果（i-tya語文章）をプレーンテキストで出力し、その後セパレータ「---」を単独行に挟んで、構造データをJSONで出力せよ。
+
+（ここに翻訳されたi-tya語の文章をプレーンテキストで出力）
+---
 {
   "translation": "完成したi-tya語文章",
   "breakdown": [
@@ -455,7 +459,7 @@ rootは末尾母音(a,i,u)を除いた語幹のみ。末尾が母音であって
 `;
 
 const reverseTranslateRules = `
-あなたはi-tya言語の逆翻訳コンパイラだ。i-tya語の文章を日本語に翻訳し、JSONのみ出力せよ。
+あなたはi-tya言語の逆翻訳コンパイラだ。i-tya語の文章を日本語に翻訳せよ。
 
 【最重要ルール】
 1. 渡された辞書に存在しない単語は、絶対に意味を捏造するな。"unknown"としてそのままi-tya語を返せ。
@@ -478,6 +482,10 @@ const reverseTranslateRules = `
 【語順】SV型。後置修飾。
 
 【出力フォーマット】
+以下の形式で出力せよ。最初に翻訳結果（日本語訳）をプレーンテキストで出力し、その後セパレータ「---」を単独行に挟んで、構造データをJSONで出力せよ。
+
+（ここに翻訳された日本語訳の文章をプレーンテキストで出力）
+---
 {
   "translation": "日本語訳。辞書にない単語は「(tit)」のようにi-tya語をそのまま括弧で残せ。",
   "breakdown": [
@@ -495,14 +503,25 @@ const generateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruct
 const translateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: translateRules });
 const reverseTranslateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: reverseTranslateRules });
 
-async function callAIWithRetry(model, prompt, maxRetries = 3) {
+async function callAIWithRetry(model, prompt, res, maxRetries = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`[AI] Attempt ${attempt}/${maxRetries}`);
-      const result = await model.generateContent(prompt);
-      const rawText = result.response.text().replace(/```json|```/g, '').trim();
-      console.log(`[AI] Response received (${rawText.length} chars)`);
+      const resultStream = await model.generateContentStream(prompt);
+      
+      let fullText = "";
+      for await (const chunk of resultStream.stream) {
+        const chunkText = chunk.text();
+        fullText += chunkText;
+        if (res) res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+      }
+      
+      console.log(`[AI] Stream complete (${fullText.length} chars)`);
+      const parts = fullText.split('---');
+      const jsonText = parts.length > 1 ? parts.slice(1).join('---') : fullText;
+      const rawText = jsonText.replace(/```json|```/g, '').trim();
+      
       const sanitized = rawText.replace(
         /"((?:[^"\\]|\\.)*)"/g,
         (m, inner) => '"' + inner.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + '"'
@@ -522,6 +541,7 @@ async function callAIWithRetry(model, prompt, maxRetries = 3) {
       // APIエラー（429/5xx等）はリトライせず即投げ
       if (!isRetryable || attempt >= maxRetries) throw err;
       console.warn(`[AI] Validation error. Retrying...`);
+      if (res) res.write(`event: retry\ndata: {}\n\n`);
       await new Promise(r => setTimeout(r, 1000));
     }
   }
@@ -662,7 +682,10 @@ app.post('/api/generate', async (req, res) => {
     絶対にルールとJSONフォーマットに従い出力すること。`;
 
     const generationPromise = (async () => {
-      const aiRes = await callAIWithRetry(generateModel, prompt);
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      const aiRes = await callAIWithRetry(generateModel, prompt, res);
 
       // AIが既存と判断した場合
       if ((aiRes.status === 'existing' || !aiRes.status) && aiRes['root_word.2']) {
@@ -758,7 +781,10 @@ app.post('/api/generate', async (req, res) => {
 
     inflightGenerate.set(concept, generationPromise);
     try {
-      res.json(await generationPromise);
+      const finalRes = await generationPromise;
+      res.write(`data: ${JSON.stringify({ result: finalRes })}\n\n`);
+      res.write(`event: done\ndata: {}\n\n`);
+      res.end();
     } finally {
       inflightGenerate.delete(concept);
     }
@@ -791,7 +817,10 @@ app.post('/api/translate', async (req, res) => {
 上記リストを最大限活用し、翻訳せよ。
       `;
 
-      const parsed = await callAIWithRetry(translateModel, prompt);
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      const parsed = await callAIWithRetry(translateModel, prompt, res);
 
       const batch = db.batch();
       let hasNewWords = false;
@@ -830,7 +859,10 @@ app.post('/api/translate', async (req, res) => {
 
     inflightTranslate.set(sentence, translationPromise);
     try {
-      res.json(await translationPromise);
+      const finalRes = await translationPromise;
+      res.write(`data: ${JSON.stringify({ result: finalRes })}\n\n`);
+      res.write(`event: done\ndata: {}\n\n`);
+      res.end();
     } finally {
       inflightTranslate.delete(sentence);
     }
@@ -1003,8 +1035,13 @@ ${dictionaryStr}
 【翻訳するi-tya文章】
 ${sentence}`;
 
-    const parsed = await callAIWithRetry(reverseTranslateModel, prompt);
-    return res.json(parsed);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    const parsed = await callAIWithRetry(reverseTranslateModel, prompt, res);
+    res.write(`data: ${JSON.stringify({ result: parsed })}\n\n`);
+    res.write(`event: done\ndata: {}\n\n`);
+    res.end();
   } catch (error) {
     console.error('[/api/reverse-translate] Error:', error.message);
     res.status(500).json({ error: error.message });

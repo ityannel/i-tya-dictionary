@@ -491,6 +491,53 @@ export default function App() {
   const [isReverseMode, setIsReverseMode] = useState(false);
   const [reverseTranslationResult, setReverseTranslationResult] = useState(null);
   const [isReverseTranslateMode, setIsReverseTranslateMode] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+
+  const handleSSEStream = async (res, onText, onDone) => {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let accumulatedStream = '';
+    let sseBuffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      sseBuffer += decoder.decode(value, { stream: true });
+      
+      let lines = sseBuffer.split('\n\n');
+      sseBuffer = lines.pop(); // keep incomplete part
+      
+      for (const block of lines) {
+        const blockLines = block.split('\n');
+        let eventType = 'message';
+        for (const line of blockLines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.substring(7).trim();
+          } else if (line.startsWith('data: ')) {
+            const payloadStr = line.substring(6);
+            if (eventType === 'retry') {
+              accumulatedStream = '';
+              onText('生成をやり直しています...');
+            } else if (eventType === 'done') {
+              // stream finished
+            } else {
+              try {
+                const payload = JSON.parse(payloadStr);
+                if (payload.text) {
+                  accumulatedStream += payload.text;
+                  const textPart = accumulatedStream.split('---')[0];
+                  onText(textPart);
+                }
+                if (payload.result) {
+                  onDone(payload.result);
+                }
+              } catch(e) {}
+            }
+          }
+        }
+      }
+    }
+  };
 
   const handleAnoClick = () => {
     if (anoClicked) return;
@@ -772,7 +819,7 @@ const safeTransition = (callback) => {
 
   const executeSearch = async (searchQuery) => {
     safeTransition(() => {
-      setIsSearching(true); setResult(null); setError(null); setTrivia("トリビアを読み込み中...");
+      setIsSearching(true); setResult(null); setError(null); setTrivia("トリビアを読み込み中..."); setStreamingText("");
       setActiveSyl(-1); setSylMap([]);
     });
     try {
@@ -788,13 +835,28 @@ const safeTransition = (callback) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ concept: searchQuery }),
       });
+      
       if (res.status === 503) {
         const errData = await res.json().catch(() => ({}));
         setError('overload'); setErrorMessage(errData.error || ''); setIsSearching(false); return;
       }
-      const data = await res.json();
+      
+      let data = null;
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        await handleSSEStream(res, (text) => {
+          safeTransition(() => setStreamingText(text));
+        }, (resData) => {
+          data = resData;
+        });
+      }
+
+      if (!data) return; // Stream handled it or error
+
       if (data.status === 'invalid' || data.status === 'invailed') {
-        setError('invalid'); setIsSearching(false); return;
+        setError('invalid'); setIsSearching(false); setStreamingText(""); return;
       }
       if (data.error && (data.error.includes('503') || data.error.includes('high demand') || data.error.includes('混雑'))) {
         setError('overload'); setErrorMessage(data.error); setIsSearching(false); return;
@@ -851,20 +913,35 @@ const safeTransition = (callback) => {
   };
 
   const executeTranslation = async (sentence) => {
-    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); });
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setStreamingText(""); });
     try {
       const res = await fetch('https://i-tya-dictionary.onrender.com/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sentence }),
       });
+      
       if (res.status === 503) {
         const errData = await res.json().catch(() => ({}));
         setError('overload'); setErrorMessage(errData.error || ''); setIsSearching(false); return;
       }
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
-      const data = await res.json();
-      if (!data.translation) { setError('connection'); setIsSearching(false); return; }
+      
+      let data = null;
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        await handleSSEStream(res, (text) => {
+          safeTransition(() => setStreamingText(text));
+        }, (resData) => {
+          data = resData;
+        });
+      }
+
+      if (!data) return;
+      
+      if (!data.translation) { setError('connection'); setIsSearching(false); setStreamingText(""); return; }
       const hasNewWord = Array.isArray(data.words) && data.words.some(w => w.is_new || w.status === 'new');
       safeTransition(() => { SE_RESULT(); triggerCelebration(hasNewWord); setTranslationResult(data); setIsSearching(false); });
     } catch (err) {
@@ -874,7 +951,7 @@ const safeTransition = (callback) => {
   };
 
   const executeReverse = async (word) => {
-    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseResult(null); });
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseResult(null); setStreamingText(""); });
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
       const trData = await trRes.json();
@@ -902,7 +979,7 @@ const safeTransition = (callback) => {
   };
 
   const executeReverseTranslation = async (sentence) => {
-    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseTranslationResult(null); });
+    safeTransition(() => { setIsSearching(true); setResult(null); setError(null); setReverseTranslationResult(null); setStreamingText(""); });
     try {
       const trRes = await fetch('https://i-tya-dictionary.onrender.com/api/trivias');
       const trData = await trRes.json();
@@ -915,13 +992,28 @@ const safeTransition = (callback) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sentence }),
       });
+      
       if (res.status === 503) {
         const errData = await res.json().catch(() => ({}));
         setError('overload'); setErrorMessage(errData.error || ''); setIsSearching(false); return;
       }
       if (!res.ok) { setError('connection'); setIsSearching(false); return; }
-      const data = await res.json();
-      if (!data.translation) { setError('connection'); setIsSearching(false); return; }
+      
+      let data = null;
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        await handleSSEStream(res, (text) => {
+          safeTransition(() => setStreamingText(text));
+        }, (resData) => {
+          data = resData;
+        });
+      }
+
+      if (!data) return;
+      
+      if (!data.translation) { setError('connection'); setIsSearching(false); setStreamingText(""); return; }
       safeTransition(() => { SE_RESULT(); triggerCelebration(false); setReverseTranslationResult(data); setIsSearching(false); });
     } catch (err) {
       console.error("逆翻訳通信エラー:", err);
@@ -1186,6 +1278,11 @@ const safeTransition = (callback) => {
                 <p className="searching-text">
                   <span>{query}</span> {loadingMessages[loadingStep]}
                 </p>
+                {streamingText && (
+                  <div className="streaming-text-box" style={{ whiteSpace: 'pre-wrap', marginBottom: '20px', padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', fontSize: '1.1rem', lineHeight: '1.6' }}>
+                    {streamingText}
+                  </div>
+                )}
                 {trivia && (
                   <div className="trivia-box">
                     <span className="trivia-text">{trivia}</span>
