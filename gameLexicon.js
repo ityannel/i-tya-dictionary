@@ -23,8 +23,10 @@ const GAME_LEXICON = [
   { word: 'yanya',    ja: '正しい・よい・正解' },
   { word: 'hapo',     ja: '村' },
   { word: 'mokuno',   ja: '食べ物の店・食堂' },
-  { word: 'aisklitt', ja: 'アイスクリーム' },
-  { word: 'tiyao',    ja: 'お金' },
+  { word: 'hukapata', ja: 'アイスクリーム' },
+  { word: 'kuna',     ja: 'お金' },
+  { word: 'aisklitt', ja: 'アイスクリーム（旧表記）' },
+  { word: 'tiyao',    ja: 'お金（旧表記）' },
   { word: 'i-tya',    ja: 'この言語（i-tya語）' },
   { word: 'sunya-iesunya', ja: 'クイズ' },
 ];
