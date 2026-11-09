@@ -507,12 +507,13 @@ const generateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruct
 const translateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: translateRules });
 const reverseTranslateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: reverseTranslateRules });
 
-// ── NPC reactions for the "Hate i-tya?" game ──────────────────────────────
-// The game's story, quiz answers and progression are fixed in the client.
-// The AI only writes a short in-character reaction to what the player said,
-// and it is turned into i-tya by the dictionary's own translator. If that
-// translation contains any word that is not already in the dictionary, the
-// reaction is discarded and the client keeps the scripted line.
+// ── In-game language of "Hate i-tya?" ─────────────────────────────────────
+// The game's i-tya is a different language from this dictionary's (see gameLexicon.js).
+// Replies and translations for the game use ONLY the game's own vocabulary. Every
+// generated sentence is checked token by token; one unknown word and it is discarded,
+// so the client keeps the scripted line / shows "not available yet".
+const { validateGameSentence, lexiconPromptBlock, GAME_LEXICON } = require('./gameLexicon');
+
 const npcPersonas = {
   te:  '村に住む老人。言葉の通じない若者にi-tya語を根気よく教える先生役。やさしいが、ときどき少し厳しい。',
   cf:  '村の料理人。元気で食べ物の話が好き。若者を気に入っている。',
@@ -520,19 +521,20 @@ const npcPersonas = {
 };
 const npcEmotions = ['normal', 'smile', 'angry', 'puzzled'];
 const npcMoves = ['none', 'hop', 'shake'];
-const npcRules = `
-あなたは言語学習ノベルゲーム「Hate i-tya?」のキャラクターだ。
-プレイヤー（言葉の通じない異世界に来た若者）が話しかけてきたとき、キャラクターとして短く反応する。
+const gameRules = `
+あなたは言語学習ノベルゲーム「Hate i-tya?」の、ゲーム内言語（i-tya語）の担当だ。
+このゲーム内言語は、辞書サイトのi-tya語とは別物で、下の【単語表】と【文法】だけで成り立つ。
 
 【絶対ルール】
-1. 物語を先に進めたり、新しい事実・地名・人名・出来事・設定を作ってはならない。
-2. 返事は日本語で1文、20文字以内。やさしく簡単な、日常的でよく使う言葉だけを使う。
-3. 反応は、いまの場面（渡されたセリフ）の流れに沿わせ、必要なら場面の話題に戻す。
-4. クイズの答え・ヒントを教えてはならない。
-5. 差別的・暴力的・性的な内容、個人情報、現実の固有名詞には反応しない（その場合は「わからない」というような短い反応にする）。
-6. 出力は必ずJSONのみ: {"reply_ja":"...","emotion":"normal|smile|angry|puzzled","move":"none|hop|shake"}
+1. i-tya語の文には【単語表】にある単語だけを使う。表にない単語を作ってはならない。英語や、辞書サイトのi-tya語（pa, ma, -a/-i/-u 語尾など）の単語を混ぜてはならない。
+2. 表だけで表現できない内容は、無理に近い言葉で言い換えたりせず、"itya" に null を入れる。
+3. 文は短く（8語以内）。文法は【文法】と【例】の型に従い、語順を勝手に変えない。
+4. 物語を先に進めたり、新しい事実・地名・人名・出来事を作ってはならない。クイズの答え・ヒントを教えてはならない。
+5. 出力は必ずJSONのみ。
+
+${lexiconPromptBlock()}
 `;
-const npcModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: npcRules });
+const gameModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: gameRules });
 
 async function callAIWithRetry(model, prompt, res, maxRetries = 3) {
   let lastError;
@@ -1081,49 +1083,79 @@ ${sentence}`;
   }
 });
 
-// NPC reaction (game). Always returns JSON; ok:false means "keep the scripted line".
+// ── Game endpoints (all use the game's own vocabulary only) ───────────────
+const GAME_UNAVAILABLE = { ok: false, reason: 'unavailable' };
+
+// the model writes an i-tya sentence; we only accept it if it passes the vocabulary check
+async function gameSentence(prompt) {
+  const parsed = await callAIWithRetry(gameModel, prompt, null, 2);
+  const itya = typeof parsed.itya === 'string' ? parsed.itya.trim() : null;
+  if (!itya) return { parsed, itya: null, check: { ok: false, reason: 'no_words' } };
+  return { parsed, itya, check: validateGameSentence(itya) };
+}
+
+app.get('/api/game-lexicon', (req, res) => res.json({ words: GAME_LEXICON }));
+
+// Japanese -> game i-tya  (shape kept compatible with the client: translation / breakdown)
+app.post('/api/game-translate', aiLimiterMinute, aiLimiterHour, async (req, res) => {
+  const sentence = typeof (req.body && req.body.sentence) === 'string' ? req.body.sentence.trim() : '';
+  if (!sentence || sentence.length > 80) return res.status(400).json({ ok: false, reason: 'bad_input' });
+  try {
+    const { itya, check } = await gameSentence(`次の日本語を、ゲーム内のi-tya語に訳せ。【単語表】の単語だけで言えるときだけ訳し、言えないときは itya を null にせよ。
+日本語: 「${sentence}」
+出力: {"itya": "訳文 または null"}`);
+    if (!check.ok) return res.json({ ok: false, reason: check.reason === 'no_words' ? 'no_words' : 'unverified' });
+    return res.json({ ok: true, translation: itya, breakdown: [] });
+  } catch (error) {
+    console.error('[/api/game-translate] Error:', error.message);
+    return res.json({ ...GAME_UNAVAILABLE, reason: 'error' });
+  }
+});
+
+// game i-tya -> Japanese. Words outside the vocabulary are left as 「word」 and reported.
+app.post('/api/game-reverse', aiLimiterMinute, aiLimiterHour, async (req, res) => {
+  const sentence = typeof (req.body && req.body.sentence) === 'string' ? req.body.sentence.trim() : '';
+  if (!sentence || sentence.length > 80) return res.status(400).json({ ok: false, reason: 'bad_input' });
+  const check = validateGameSentence(sentence, { maxTokens: 12 });
+  if (check.tokens.length === 0) return res.status(400).json({ ok: false, reason: 'bad_input' });
+  if (check.unknown.length === check.tokens.length) return res.json({ ok: false, reason: 'no_words', unknown: check.unknown });
+  try {
+    const parsed = await callAIWithRetry(gameModel, `次のi-tya語の文を、自然な日本語に訳せ。【単語表】にある単語だけを根拠にすること。
+表にない単語（${check.unknown.join(', ') || 'なし'}）は意味を推測せず、日本語訳の中でも「単語」の形のまま残せ。
+i-tya語: 「${sentence}」
+出力: {"ja": "日本語訳"}`, null, 2);
+    const ja = typeof parsed.ja === 'string' ? parsed.ja.trim() : '';
+    if (!ja) return res.json({ ok: false, reason: 'unverified' });
+    return res.json({ ok: true, translation: ja, breakdown: [], unknown: check.unknown });
+  } catch (error) {
+    console.error('[/api/game-reverse] Error:', error.message);
+    return res.json({ ...GAME_UNAVAILABLE, reason: 'error' });
+  }
+});
+
+// NPC reaction. Always returns JSON; ok:false means "keep the scripted line".
 app.post('/api/npc', aiLimiterMinute, aiLimiterHour, async (req, res) => {
   const { speaker, scene_text, player_ja } = req.body || {};
-  const knownWords = Array.isArray(req.body && req.body.known_words) ? req.body.known_words : [];
   if (!npcPersonas[speaker]) return res.status(400).json({ ok: false, reason: 'bad_speaker' });
   if (typeof player_ja !== 'string' || !player_ja.trim() || player_ja.length > 80) {
     return res.status(400).json({ ok: false, reason: 'bad_input' });
   }
   const sceneText = typeof scene_text === 'string' ? scene_text.slice(0, 120) : '';
-  const known = knownWords.filter(w => typeof w === 'string').slice(0, 60).map(w => w.slice(0, 20));
-
   try {
-    await ensureCache();
-
-    // 1) short in-character reaction (Japanese)
-    const prompt1 = `キャラクター設定: ${npcPersonas[speaker]}
-いまの場面でのあなたのセリフ（i-tya語の場合あり）: 「${sceneText}」
-プレイヤーが覚えた単語: ${known.join(', ') || '（まだない）'}
-プレイヤーの発言: 「${player_ja.trim()}」
-上記に、キャラクターとして短く反応せよ。`;
-    const plan = await callAIWithRetry(npcModel, prompt1, null, 2);
-    const replyJa = typeof plan.reply_ja === 'string' ? plan.reply_ja.trim() : '';
-    if (!replyJa || replyJa.length > 40 || /[A-Za-z]{3,}/.test(replyJa)) {
-      return res.json({ ok: false, reason: 'bad_reply' });
-    }
-    const emotion = npcEmotions.includes(plan.emotion) ? plan.emotion : 'normal';
-    const move = npcMoves.includes(plan.move) ? plan.move : 'none';
-
-    // 2) i-tya via the dictionary's own translator; no invented words allowed
-    const checkListStr = buildWordListStr();
-    const prompt2 = `
-文章: 「${replyJa}」
-既存リスト: ${checkListStr}
-上記リストを最大限活用し、翻訳せよ。
-      `;
-    const parsed = await callAIWithRetry(translateModel, prompt2, null);
-    const items = Array.isArray(parsed.breakdown) ? parsed.breakdown : [];
-    const unverified = items.some(b => b.status === 'new' || b.status === 'unknown');
-    if (!parsed.translation || typeof parsed.translation !== 'string' || items.length === 0 || unverified) {
-      return res.json({ ok: false, reason: 'unverified' });
-    }
+    const { parsed, itya, check } = await gameSentence(`キャラクター設定: ${npcPersonas[speaker]}
+いまの場面でのあなたのセリフ: 「${sceneText}」
+プレイヤーの発言（日本語）: 「${player_ja.trim()}」
+キャラクターとして、短く反応するi-tya語の1文を作れ。【単語表】の単語だけを使い、簡単な型（例の文）に沿うこと。
+うまく言えないときは itya を null にせよ。
+"ja" には、その文の日本語の意味を書く。"emotion" は normal|smile|angry|puzzled、"move" は none|hop|shake。
+出力: {"itya": "…または null", "ja": "日本語の意味", "emotion": "…", "move": "…"}`);
+    if (!check.ok) return res.json({ ok: false, reason: check.reason === 'no_words' ? 'no_words' : 'unverified' });
+    const ja = typeof parsed.ja === 'string' ? parsed.ja.trim() : '';
+    if (!ja || ja.length > 60) return res.json({ ok: false, reason: 'bad_reply' });
+    const emotion = npcEmotions.includes(parsed.emotion) ? parsed.emotion : 'normal';
+    const move = npcMoves.includes(parsed.move) ? parsed.move : 'none';
     // nothing is written to Firestore here (reaction only)
-    return res.json({ ok: true, itya: parsed.translation, ja: replyJa, emotion, move });
+    return res.json({ ok: true, itya, ja, emotion, move });
   } catch (error) {
     console.error('[/api/npc] Error:', error.message);
     return res.json({ ok: false, reason: 'error' });
