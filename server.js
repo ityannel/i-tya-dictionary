@@ -6,6 +6,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
+const { createRateLimiter } = require('./rateLimit');
 
 // ─────────────────────────────────────────────
 //  Constants
@@ -218,6 +219,7 @@ app.use(express.json());
 
 const allowedOrigins = [
   'https://i-tya-dictionary.vercel.app',
+  'https://ityannel.github.io', // "Hate i-tya?" game (GitHub Pages)
   'http://localhost:5173',
   'http://localhost:5174'
 ];
@@ -234,6 +236,16 @@ app.use(cors({
   allowedHeaders: ['Content-Type'],
   optionsSuccessStatus: 200
 }));
+
+// ─────────────────────────────────────────────
+//  Rate limiting for the AI-backed endpoints (public game traffic)
+//  Env-tunable; the dictionary's own site is exempt.
+// ─────────────────────────────────────────────
+const AI_LIMIT_PER_MIN = parseInt(process.env.AI_LIMIT_PER_MIN) || 30;
+const AI_LIMIT_PER_HOUR = parseInt(process.env.AI_LIMIT_PER_HOUR) || 300;
+const aiLimitExempt = ['https://i-tya-dictionary.vercel.app'];
+const aiLimiterMinute = createRateLimiter({ windowMs: 60 * 1000, max: AI_LIMIT_PER_MIN, exemptOrigins: aiLimitExempt });
+const aiLimiterHour = createRateLimiter({ windowMs: 60 * 60 * 1000, max: AI_LIMIT_PER_HOUR, exemptOrigins: aiLimitExempt });
 
 // ─────────────────────────────────────────────
 //  AI setup
@@ -787,16 +799,19 @@ app.post('/api/generate', async (req, res) => {
 });
 
 // 翻訳
-app.post('/api/translate', async (req, res) => {
+app.post('/api/translate', aiLimiterMinute, aiLimiterHour, async (req, res) => {
   const { sentence } = req.body;
   if (!sentence) return res.status(400).json({ error: 'Sentence is empty.' });
+  // dryRun: translate only; new words proposed by the AI are NOT saved to the dictionary.
+  const dryRun = req.body.dryRun === true;
+  const inflightKey = (dryRun ? 'dry:' : 'live:') + sentence;
 
   try {
     await ensureCache();
 
-    if (inflightTranslate.has(sentence)) {
+    if (inflightTranslate.has(inflightKey)) {
       console.log('[/api/translate] Duplicate request detected, waiting...');
-      return res.json(await inflightTranslate.get(sentence));
+      return res.json(await inflightTranslate.get(inflightKey));
     }
 
     const translationPromise = (async () => {
@@ -816,6 +831,7 @@ app.post('/api/translate', async (req, res) => {
       let hasNewWords = false;
 
       for (const item of parsed.breakdown || []) {
+        if (dryRun) break;
         if (item.status === 'new' && item.root) {
           try {
             validateRoot(item.root);
@@ -847,25 +863,25 @@ app.post('/api/translate', async (req, res) => {
       return parsed;
     })();
 
-    inflightTranslate.set(sentence, translationPromise);
+    inflightTranslate.set(inflightKey, translationPromise);
     try {
       const finalRes = await translationPromise;
       res.write(`data: ${JSON.stringify({ result: finalRes })}\n\n`);
       res.write(`event: done\ndata: {}\n\n`);
       res.end();
     } finally {
-      inflightTranslate.delete(sentence);
+      inflightTranslate.delete(inflightKey);
     }
 
   } catch (error) {
-    inflightTranslate.delete(sentence);
+    inflightTranslate.delete(inflightKey);
     console.error('[/api/translate] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
 // 逆引き（i-tya語 → 日本語）および 日本語検索
-app.post('/api/reverse', async (req, res) => {
+app.post('/api/reverse', aiLimiterMinute, aiLimiterHour, async (req, res) => {
   const { word } = req.body;
   if (!word) return res.status(400).json({ error: 'Word is empty.' });
 
@@ -979,7 +995,7 @@ app.post('/api/reverse', async (req, res) => {
 });
 
 // i-tya文章 → 日本語逆翻訳
-app.post('/api/reverse-translate', async (req, res) => {
+app.post('/api/reverse-translate', aiLimiterMinute, aiLimiterHour, async (req, res) => {
   const { sentence } = req.body;
   if (!sentence) return res.status(400).json({ error: 'Sentence is empty.' });
 
