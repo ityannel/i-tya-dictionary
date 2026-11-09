@@ -507,6 +507,33 @@ const generateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruct
 const translateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: translateRules });
 const reverseTranslateModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: reverseTranslateRules });
 
+// ── NPC reactions for the "Hate i-tya?" game ──────────────────────────────
+// The game's story, quiz answers and progression are fixed in the client.
+// The AI only writes a short in-character reaction to what the player said,
+// and it is turned into i-tya by the dictionary's own translator. If that
+// translation contains any word that is not already in the dictionary, the
+// reaction is discarded and the client keeps the scripted line.
+const npcPersonas = {
+  te:  '村に住む老人。言葉の通じない若者にi-tya語を根気よく教える先生役。やさしいが、ときどき少し厳しい。',
+  cf:  '村の料理人。元気で食べ物の話が好き。若者を気に入っている。',
+  god: '世界を作った神様。威厳のある老人口調（〜じゃ）。'
+};
+const npcEmotions = ['normal', 'smile', 'angry', 'puzzled'];
+const npcMoves = ['none', 'hop', 'shake'];
+const npcRules = `
+あなたは言語学習ノベルゲーム「Hate i-tya?」のキャラクターだ。
+プレイヤー（言葉の通じない異世界に来た若者）が話しかけてきたとき、キャラクターとして短く反応する。
+
+【絶対ルール】
+1. 物語を先に進めたり、新しい事実・地名・人名・出来事・設定を作ってはならない。
+2. 返事は日本語で1文、20文字以内。やさしく簡単な、日常的でよく使う言葉だけを使う。
+3. 反応は、いまの場面（渡されたセリフ）の流れに沿わせ、必要なら場面の話題に戻す。
+4. クイズの答え・ヒントを教えてはならない。
+5. 差別的・暴力的・性的な内容、個人情報、現実の固有名詞には反応しない（その場合は「わからない」というような短い反応にする）。
+6. 出力は必ずJSONのみ: {"reply_ja":"...","emotion":"normal|smile|angry|puzzled","move":"none|hop|shake"}
+`;
+const npcModel = genAI.getGenerativeModel({ model: AI_MODEL, systemInstruction: npcRules });
+
 async function callAIWithRetry(model, prompt, res, maxRetries = 3) {
   let lastError;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -1051,6 +1078,55 @@ ${sentence}`;
   } catch (error) {
     console.error('[/api/reverse-translate] Error:', error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// NPC reaction (game). Always returns JSON; ok:false means "keep the scripted line".
+app.post('/api/npc', aiLimiterMinute, aiLimiterHour, async (req, res) => {
+  const { speaker, scene_text, player_ja } = req.body || {};
+  const knownWords = Array.isArray(req.body && req.body.known_words) ? req.body.known_words : [];
+  if (!npcPersonas[speaker]) return res.status(400).json({ ok: false, reason: 'bad_speaker' });
+  if (typeof player_ja !== 'string' || !player_ja.trim() || player_ja.length > 80) {
+    return res.status(400).json({ ok: false, reason: 'bad_input' });
+  }
+  const sceneText = typeof scene_text === 'string' ? scene_text.slice(0, 120) : '';
+  const known = knownWords.filter(w => typeof w === 'string').slice(0, 60).map(w => w.slice(0, 20));
+
+  try {
+    await ensureCache();
+
+    // 1) short in-character reaction (Japanese)
+    const prompt1 = `キャラクター設定: ${npcPersonas[speaker]}
+いまの場面でのあなたのセリフ（i-tya語の場合あり）: 「${sceneText}」
+プレイヤーが覚えた単語: ${known.join(', ') || '（まだない）'}
+プレイヤーの発言: 「${player_ja.trim()}」
+上記に、キャラクターとして短く反応せよ。`;
+    const plan = await callAIWithRetry(npcModel, prompt1, null, 2);
+    const replyJa = typeof plan.reply_ja === 'string' ? plan.reply_ja.trim() : '';
+    if (!replyJa || replyJa.length > 40 || /[A-Za-z]{3,}/.test(replyJa)) {
+      return res.json({ ok: false, reason: 'bad_reply' });
+    }
+    const emotion = npcEmotions.includes(plan.emotion) ? plan.emotion : 'normal';
+    const move = npcMoves.includes(plan.move) ? plan.move : 'none';
+
+    // 2) i-tya via the dictionary's own translator; no invented words allowed
+    const checkListStr = buildWordListStr();
+    const prompt2 = `
+文章: 「${replyJa}」
+既存リスト: ${checkListStr}
+上記リストを最大限活用し、翻訳せよ。
+      `;
+    const parsed = await callAIWithRetry(translateModel, prompt2, null);
+    const items = Array.isArray(parsed.breakdown) ? parsed.breakdown : [];
+    const unverified = items.some(b => b.status === 'new' || b.status === 'unknown');
+    if (!parsed.translation || typeof parsed.translation !== 'string' || items.length === 0 || unverified) {
+      return res.json({ ok: false, reason: 'unverified' });
+    }
+    // nothing is written to Firestore here (reaction only)
+    return res.json({ ok: true, itya: parsed.translation, ja: replyJa, emotion, move });
+  } catch (error) {
+    console.error('[/api/npc] Error:', error.message);
+    return res.json({ ok: false, reason: 'error' });
   }
 });
 
