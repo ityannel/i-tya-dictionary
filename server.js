@@ -1085,7 +1085,8 @@ ${sentence}`;
 
 // ── Game endpoints ────────────────────────────────────────────────────────
 const GAME_FRESH_MS = parseInt(process.env.GAME_FRESH_MS) || 10 * 60 * 1000;   // how stale the word list may get
-const GAME_KEEP_WORDS = ['oi'];   // the only game word kept as is (hello / yes)
+// game words kept exactly as they are (the author's decision): hello/yes, village, canteen
+const GAME_KEEP_WORDS = ['oi', 'hapo', 'mokuno'];
 // grammar words from the dictionary's rules (they are not always stored as entries)
 const GRAMMAR_PARTICLES = ['ma', 'pa', 'na', 'sa', 'la', 'nu', 'hu', 'nyu', 'ku', 'mu', 'su', 'tu', 'pu', 'pyu', 'syu',
   'yu', 'myu', 'kyu', 'lu', 'wa', 'ya', 'swa', 'pwa', 'mwa'];
@@ -1139,7 +1140,7 @@ function checkTranslation(parsed) {
   if (!translation) return { ok: false, reason: 'no_words' };
   const items = Array.isArray(parsed.breakdown) ? parsed.breakdown : [];
   const invented = items.some(b => (b.status === 'new' || b.status === 'unknown') &&
-    String(b.itya || '').toLowerCase().replace(/[^a-z]/g, '') !== 'oi');
+    !String(b.itya || '').toLowerCase().split(/[^a-z]+/).filter(Boolean).every(t => GAME_KEEP_WORDS.includes(t)));
   if (invented) return { ok: false, reason: 'unverified' };
   const v = validateDictionarySentence(translation);
   if (!v.ok) return { ok: false, reason: v.reason };
@@ -1152,7 +1153,7 @@ async function translateWithDictionary(japanese) {
 既存リスト: ${buildWordListStr()}
 上記リストを最大限活用し、翻訳せよ。
 【追加ルール】リストにない語は作らないこと。リストだけで言えないときは translation を空文字にせよ。
-「はい」「やあ」「こんにちは」に当たる語だけは、リストの語ではなく Oi をそのまま使え。
+次の語だけは、リストの語ではなく、ゲームの語をそのまま使え: 「はい」「やあ」「こんにちは」= Oi、「村」= hapo、「食堂」= mokuno。
       `;
   const parsed = await callAIWithRetry(translateModel, prompt, null, 2);
   return checkTranslation(parsed);
@@ -1206,7 +1207,7 @@ ${[...simple, ...complex].join('\n')}
 
 【重要】
 1. この辞書に存在しない単語（${unknown.join(', ') || 'なし'}）は意味を捏造せず、translation内では「(単語名)」の形でそのまま残せ。
-2. Oi は「はい／やあ」の意味のあいさつ語として扱え。
+2. Oi は「はい／やあ」、hapo は「村」、mokuno は「食堂」の意味として扱え。
 3. 熟語が辞書にある場合は、個別の単語に分解せず、熟語としての意味を優先せよ。
 
 上記の辞書を参照し、以下のi-tya文章を自然な日本語に翻訳せよ。出力は必ずJSONのみ: {"translation":"日本語訳"}
